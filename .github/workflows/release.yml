@@ -32,6 +32,6 @@ jobs:
         run: |
           version=$(ruby -e 'print Gem::Specification.load("yard-rspec-coverage.gemspec").version')
           test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME is not v$version"; exit 1; }
-      - uses: rubygems/configure-rubygems-credentials@v1
+      - uses: rubygems/configure-rubygems-credentials@v2.1.0
       - run: gem build yard-rspec-coverage.gemspec
       - run: gem push yard-rspec-coverage-*.gem
