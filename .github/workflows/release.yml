@@ -22,7 +22,7 @@ jobs:
       contents: read
       id-token: write # Trusted Publishing: exchanges a GitHub token for a short-lived RubyGems key.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: ruby/setup-ruby@v1
