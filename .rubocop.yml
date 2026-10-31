@@ -1,0 +1,41 @@
+# RuboCop defaults plus plugins; the target Ruby version comes from the gemspec.
+plugins:
+  - rubocop-performance
+  - rubocop-rake
+  - rubocop-rspec
+
+AllCops:
+  NewCops: enable
+
+Layout/LineLength:
+  Max: 100
+
+Layout/SpaceInsideBlockBraces:
+  EnforcedStyle: no_space
+  SpaceBeforeBlockParameters: false
+
+# Counts every call as a branch; method length and complexity already limit method size.
+Metrics/AbcSize:
+  Enabled: false
+
+# Expectations are set before the action, see AGENTS.md.
+RSpec/MessageSpies:
+  EnforcedStyle: receive
+
+# YARD loads plugins by their `yard-` prefixed file name.
+Naming/FileName:
+  Exclude:
+    - lib/yard-rspec-coverage.rb
+
+# A heredoc is the example's input.
+RSpec/ExampleLength:
+  CountAsOne: ['heredoc']
+
+# We never use `unless`.
+Style/NegatedIf:
+  Enabled: false
+
+# Follows lib/yard_rspec/stats.rb, not the class it extends.
+RSpec/SpecFilePathFormat:
+  Exclude:
+    - spec/yard_rspec/stats_spec.rb

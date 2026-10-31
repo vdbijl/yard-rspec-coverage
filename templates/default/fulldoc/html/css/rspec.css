@@ -1,0 +1,33 @@
+.rspec_examples ul.rspec {
+  list-style: none;
+  padding-left: 0;
+}
+.rspec_context > ul.rspec {
+  margin: 3px 0 6px 4px;
+  padding-left: 12px;
+  border-left: 2px solid #e1e1e8;
+}
+.rspec_examples summary {
+  cursor: pointer;
+}
+.rspec_context_name {
+  font-style: italic;
+  color: #555;
+}
+.rspec_toggle {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: normal;
+}
+.rspec_label {
+  padding: 1px 4px;
+  font-size: 11px;
+  font-weight: normal;
+}
+.rspec_pending {
+  background: #d5d5d5;
+}
+.rspec_missing {
+  color: #fff;
+  background: #cc0000;
+}

@@ -1,0 +1,33 @@
+# Build and test output
+*.gem
+/pkg/
+/coverage/
+/doc/
+/.yardoc/
+/.bundle/
+/vendor/bundle
+
+# Local tools and notes, not part of the gem
+/CLAUDE.md
+/.claude
+/.remember
+/.idea
+/.vscode
+/.ruby-lsp
+/.ruby-gemset
+/.ruby-version
+/.mcp.json
+/goal.md
+/IDEAS.md
+/INSTRUCTIONS.md
+/presentation/
+
+# Shell and personal config files that may be in the project root
+/.bash_profile
+/.bashrc
+/.profile
+/.zprofile
+/.zshrc
+/.gitconfig
+/.gitmodules
+/.ripgreprc

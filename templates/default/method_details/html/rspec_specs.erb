@@ -1,0 +1,14 @@
+<% examples = object[:rspec_examples].to_a %>
+<% if examples.any? || YardRspec::Coverage.countable?(object) %>
+  <div class="tags rspec_examples">
+    <% if examples.any? %>
+      <% count = YardRspec::Coverage.examples(examples).size %>
+      <p class="tag_title">RSpec Examples (<%= count %>):<% if count > 1 %> <a href="#" class="rspec_toggle">expand all</a><% end %></p>
+      <ul class="rspec">
+        <%= rspec_nodes_html(examples) %>
+      </ul>
+    <% else %>
+      <p class="tag_title">RSpec Examples: <span class="rspec_label rspec_missing">no specs</span></p>
+    <% end %>
+  </div>
+<% end %>
