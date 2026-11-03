@@ -78,6 +78,38 @@ RSpec.describe YardRspec::Coverage do
 
       expect(countable?('Example#run')).to be false
     end
+
+    it 'returns false for a method defined in a _spec.rb file outside spec/' do
+      YARD::Registry.at('Example#run')
+                    .instance_variable_set(:@files, [['test/widget_spec.rb', 1]])
+
+      expect(countable?('Example#run')).to be false
+    end
+
+    it 'returns true for a public method of a Rails view helper' do
+      YARD::Registry.at('Example#run')
+                    .instance_variable_set(:@files, [['app/helpers/users_helper.rb', 1]])
+
+      expect(countable?('Example#run')).to be true
+    end
+  end
+
+  describe '.spec_file?' do
+    it 'returns true for a file in a spec directory' do
+      expect(described_class.spec_file?('spec/support/helpers.rb')).to be true
+    end
+
+    it 'returns true for a file ending in _spec.rb' do
+      expect(described_class.spec_file?('test/widget_spec.rb')).to be true
+    end
+
+    it 'returns false for a Rails view helper' do
+      expect(described_class.spec_file?('app/helpers/users_helper.rb')).to be false
+    end
+
+    it 'returns false for a directory whose name ends in spec' do
+      expect(described_class.spec_file?('lib/rspec/widget.rb')).to be false
+    end
   end
 
   describe '.examples' do

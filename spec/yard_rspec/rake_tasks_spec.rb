@@ -161,6 +161,30 @@ RSpec.describe 'yard_rspec/rake_tasks', type: :task do
       end
     end
 
+    context 'when yard:rspec_coverage finds one uncovered method in 20,000' do
+      let(:methods) do
+        Array.new(20_000) do |index|
+          instance_double(YARD::CodeObjects::MethodObject, path: "Widget#m#{index}",
+                                                           file: 'widget.rb', line: index)
+        end
+      end
+
+      before do
+        allow(YardRspec::Coverage).to receive(:countable_methods).and_return(methods)
+        allow(YardRspec::Coverage).to receive(:covered?) {|method| method != methods.first}
+        allow(YARD).to receive(:parse)
+      end
+
+      after {YardRspec::Config.minimum_rspec_coverage = nil}
+
+      it 'still fails the default minimum of 100%' do
+        expect {Rake.application['yard:rspec_coverage'].invoke}
+          .to raise_error(SystemExit)
+          .and output.to_stdout
+          .and output.to_stderr
+      end
+    end
+
     # YARD reads .yardopts from the current directory.
     context 'when yard:rspec_coverage runs in a project whose .yardopts excludes a file' do
       let(:dir) {Dir.mktmpdir}

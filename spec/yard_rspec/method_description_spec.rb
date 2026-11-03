@@ -26,6 +26,10 @@ RSpec.describe YardRspec::MethodDescription do
       expect(described_class.parse('when the widget is empty')).to be_nil
     end
 
+    it 'returns nil when only a later line of the text starts with # or .' do
+      expect(described_class.parse("when the widget\n#run")).to be_nil
+    end
+
     it 'parses an operator method' do
       expect(described_class.parse('#<=>').name).to eq('<=>')
     end
@@ -106,12 +110,74 @@ RSpec.describe YardRspec::MethodDescription do
       expect(described_class.parse('#spin').find_in(namespace).path).to eq('Spinnable#spin')
     end
 
-    it 'falls back to the other scope when the prefix does not match' do
+    it 'falls back to the class scope when a # prefix names a class method' do
       expect(described_class.parse('#build').find_in(namespace).path).to eq('Widget.build')
+    end
+
+    it 'falls back to the instance scope when a . prefix names an instance method' do
+      expect(described_class.parse('.run').find_in(namespace).path).to eq('Widget#run')
     end
 
     it 'returns nil when the method does not exist' do
       expect(described_class.parse('#missing').find_in(namespace)).to be_nil
+    end
+
+    # RSpec specs often describe the constructor as '.new', but YARD documents #initialize.
+    context 'when the description names new' do
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Gizmo
+            def initialize; end
+          end
+
+          class Factory
+            def self.new; end
+
+            def initialize; end
+          end
+        RUBY
+      end
+
+      it 'finds initialize for .new' do
+        expect(described_class.parse('.new').find_in(YARD::Registry.at('Gizmo')).path)
+          .to eq('Gizmo#initialize')
+      end
+
+      it 'finds initialize for #new' do
+        expect(described_class.parse('#new').find_in(YARD::Registry.at('Gizmo')).path)
+          .to eq('Gizmo#initialize')
+      end
+
+      it 'returns nil for another missing method, not initialize' do
+        expect(described_class.parse('#missing').find_in(YARD::Registry.at('Gizmo'))).to be_nil
+      end
+
+      it 'finds a class method new that the class defines itself' do
+        expect(described_class.parse('.new').find_in(YARD::Registry.at('Factory')).path)
+          .to eq('Factory.new')
+      end
+    end
+
+    context 'when an instance method and a class method have the same name' do
+      subject(:namespace) {YARD::Registry.at('Gadget')}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Gadget
+            def self.call; end
+
+            def call; end
+          end
+        RUBY
+      end
+
+      it 'finds the instance method for a # prefix' do
+        expect(described_class.parse('#call').find_in(namespace).path).to eq('Gadget#call')
+      end
+
+      it 'finds the class method for a . prefix' do
+        expect(described_class.parse('.call').find_in(namespace).path).to eq('Gadget.call')
+      end
     end
   end
 end

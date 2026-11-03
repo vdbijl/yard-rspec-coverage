@@ -20,5 +20,13 @@ module YardRspec
     def self.all
       (YARD::Registry.root[REGISTRY_KEY] || []).sort
     end
+
+    # Records an error as a problem instead of letting YARD log it, so the parse goes on.
+    # @param [String] location 'file:line' of the describe.
+    def self.recording_failure(location)
+      yield
+    rescue StandardError => e
+      add("#{location}: could not process the describe: #{e.class}: #{e.message}")
+    end
   end
 end

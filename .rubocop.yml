@@ -4,8 +4,16 @@ plugins:
   - rubocop-rake
   - rubocop-rspec
 
+# Add to RuboCop's default excludes (vendor/**/* and more) instead of replacing them.
+inherit_mode:
+  merge:
+    - Exclude
+
 AllCops:
   NewCops: enable
+  # Minimal consumer projects for the end-to-end specs, see fixture_projects_spec.rb.
+  Exclude:
+    - spec/fixtures/**/*
 
 Layout/LineLength:
   Max: 100

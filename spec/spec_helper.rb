@@ -6,7 +6,7 @@ if ENV['COVERAGE']
   SimpleCov.start do
     enable_coverage :branch
     skip '/spec/'
-    minimum_coverage line: 99, branch: 73
+    minimum_coverage line: 99, branch: 100
   end
 end
 
@@ -18,6 +18,16 @@ YARD::Logger.instance.level = YARD::Logger::ERROR
 RSpec.configure do |config|
   config.before do
     YARD::Registry.clear
+  end
+
+  # YARD catches an exception raised by a handler and only logs it, so the example would pass.
+  config.before do
+    @yard_errors = []
+    allow(YARD::Logger.instance).to receive(:error) {|*message| @yard_errors << message.join(' ')}
+  end
+
+  config.after do
+    expect(@yard_errors).to eq([]), "YARD logged errors: #{@yard_errors.join("\n")}"
   end
 
   config.raise_errors_for_deprecations!
