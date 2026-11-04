@@ -80,8 +80,8 @@ RSpec.describe YardRspec::DescribeHandler do
     context 'with the RSpec.describe ClassName nested form' do
       before do
         parse(<<~RUBY)
-          module Sts
-            class ActivationFrame
+          module Shop
+            class Basket
               # @return [Boolean]
               def eql?(other); self == other; end
 
@@ -89,20 +89,20 @@ RSpec.describe YardRspec::DescribeHandler do
               def hash; super; end
             end
 
-            RSpec.describe ActivationFrame do
+            RSpec.describe Basket do
               describe '#eql?' do
                 it 'returns true for equal objects' do
-                  frame = ActivationFrame.new
-                  expect(frame.eql?(frame)).to be(true)
+                  basket = Basket.new
+                  expect(basket.eql?(basket)).to be(true)
                 end
                 it 'returns false for different objects' do
-                  expect(ActivationFrame.new.eql?(ActivationFrame.new)).to be(false)
+                  expect(Basket.new.eql?(Basket.new)).to be(false)
                 end
               end
 
               describe '#hash' do
                 it 'returns an integer' do
-                  expect(ActivationFrame.new.hash).to be_a(Integer)
+                  expect(Basket.new.hash).to be_a(Integer)
                 end
               end
             end
@@ -111,12 +111,12 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'attaches examples to the correct instance methods' do
-        eql_method = YARD::Registry.at('Sts::ActivationFrame#eql?')
+        eql_method = YARD::Registry.at('Shop::Basket#eql?')
         expect(eql_method[:rspec_examples].count).to eq(2)
       end
 
       it 'extracts the descriptions for each nested describe' do
-        descriptions = YARD::Registry.at('Sts::ActivationFrame#eql?')[:rspec_examples]
+        descriptions = YARD::Registry.at('Shop::Basket#eql?')[:rspec_examples]
                                      .map {|example| example[:description]}
         expect(descriptions).to eq(
           ['returns true for equal objects', 'returns false for different objects']
@@ -124,7 +124,7 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'attaches examples from separate nested describe blocks' do
-        hash_method = YARD::Registry.at('Sts::ActivationFrame#hash')
+        hash_method = YARD::Registry.at('Shop::Basket#hash')
         expect(hash_method[:rspec_examples].count).to eq(1)
       end
     end
@@ -178,6 +178,84 @@ RSpec.describe YardRspec::DescribeHandler do
 
       it 'accumulates examples from all describe blocks' do
         expect(YARD::Registry.at('Greeter#greet')[:rspec_examples].count).to eq(2)
+      end
+    end
+
+    # As in Ruby, where `Api` inside the body of module Api is the nested Api::Api.
+    context 'when a describe in a module names a class nested in it with the same name' do
+      before do
+        parse(<<~RUBY)
+          module Api
+            def self.call; end
+
+            class Api
+              def self.call; end
+            end
+
+            RSpec.describe Api, '.call' do
+              it 'calls' do; end
+            end
+          end
+        RUBY
+      end
+
+      it 'attaches the examples to the method of the nested class' do
+        expect(YARD::Registry.at('Api::Api.call')[:rspec_examples])
+          .to eq([{ description: 'calls', code: '' }])
+      end
+
+      it 'records no describe problem' do
+        expect(YardRspec::DescribeProblems.all).to eq([])
+      end
+    end
+
+    context 'with the class name written as a string' do
+      it 'attaches the examples to the method' do
+        parse(<<~RUBY)
+          class Widget
+            def spin; end
+          end
+
+          describe 'Widget', '#spin' do
+            it 'spins' do; end
+          end
+        RUBY
+
+        expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
+          .to eq([{ description: 'spins', code: '' }])
+      end
+    end
+
+    context 'with another call that has the arguments of a describe' do
+      it 'attaches no examples' do
+        parse(<<~RUBY)
+          class Widget
+            def spin; end
+          end
+
+          register Widget, '#spin' do
+            it 'spins' do; end
+          end
+        RUBY
+
+        expect(YARD::Registry.at('Widget#spin')[:rspec_examples]).to be_nil
+      end
+    end
+
+    context 'with a top-level context instead of a describe' do
+      it 'attaches the examples to the method' do
+        parse(<<~RUBY)
+          class Widget
+            def spin; end
+          end
+
+          context Widget, '#spin' do
+            it 'spins' do; end
+          end
+        RUBY
+
+        expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
+          .to eq([{ description: 'spins', code: '' }])
       end
     end
 
@@ -301,6 +379,123 @@ RSpec.describe YardRspec::DescribeHandler do
       end
     end
 
+    context 'when a describe has no arguments' do
+      it 'ignores it' do
+        expect do
+          parse(<<~RUBY)
+            describe do
+              it 'does something' do; end
+            end
+          RUBY
+        end.not_to raise_error
+      end
+    end
+
+    context 'when a describe without arguments is parsed from a file list' do
+      let(:dir) {Dir.mktmpdir}
+
+      after {FileUtils.remove_entry(dir)}
+
+      before do
+        File.write(File.join(dir, 'anonymous_spec.rb'), "context do\n  it 'x' do; end\nend\n")
+      end
+
+      it 'does not abort the parse' do
+        expect {YARD.parse(File.join(dir, '*.rb'))}.not_to raise_error
+      end
+    end
+
+    context 'when a nested describe names no method after its # or .' do
+      before do
+        parse(<<~RUBY)
+          class Foo; end
+          RSpec.describe Foo do
+            describe '#' do
+              it 'does something' do; end
+            end
+          end
+        RUBY
+      end
+
+      it 'records a describe problem' do
+        expect(YardRspec::DescribeProblems.all)
+          .to eq(['(stdin):3: could not parse the method name of the describe'])
+      end
+    end
+
+    # A waiting describe that referred to its syntax tree would keep the tree of each spec file in
+    # memory until the end of the parse: about 0.25 MB per spec file.
+    context 'when describes wait for the end of a file list parse' do
+      let(:dir) {Dir.mktmpdir}
+      let(:waiting_describes) {[]}
+
+      after {FileUtils.remove_entry(dir)}
+
+      before do
+        File.write(File.join(dir, 'widget.rb'), "class Widget\n  def spin; end\nend\n")
+        File.write(File.join(dir, 'widget_spec.rb'), <<~RUBY)
+          RSpec.describe Widget do
+            describe '#spin' do
+              it 'spins' do
+                expect(Widget.new.spin).to be_nil
+              end
+            end
+          end
+        RUBY
+        allow(YardRspec::ParsedDescribe).to receive(:new)
+                                        .and_wrap_original do |original, **arguments|
+          original.call(**arguments).tap {|parsed_describe| waiting_describes << parsed_describe}
+        end
+        YARD.parse(File.join(dir, '*.rb'))
+      end
+
+      # The namespace, a code object, stays in the registry anyway.
+      def ast_nodes_in(object, seen = {}.compare_by_identity)
+        return [] if seen[object] || object.is_a?(YARD::CodeObjects::Base)
+        return [object] if object.is_a?(YARD::Parser::Ruby::AstNode)
+
+        seen[object] = true
+        referenced_objects(object).flat_map {|referenced| ast_nodes_in(referenced, seen)}
+      end
+
+      def referenced_objects(object)
+        case object
+        when Hash then object.to_a.flatten(1)
+        when Array, Struct then object.to_a
+        else object.instance_variables.map {|name| object.instance_variable_get(name)}
+        end
+      end
+
+      it 'keeps no syntax tree node in them' do
+        expect([waiting_describes.size, ast_nodes_in(waiting_describes)]).to eq([1, []])
+      end
+
+      it 'still attaches the examples' do
+        expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
+          .to eq([{ description: 'spins', code: 'expect(Widget.new.spin).to be_nil' }])
+      end
+    end
+
+    context 'when processing a describe of a parsed file list fails' do
+      let(:dir) {Dir.mktmpdir}
+
+      after {FileUtils.remove_entry(dir)}
+
+      before do
+        File.write(File.join(dir, 'widget.rb'), "class Widget\n  def spin; end\nend\n")
+        File.write(File.join(dir, 'widget_spec.rb'),
+                   "describe Widget, '#spin' do\n  it 'spins' do; end\nend\n")
+        allow(YardRspec::ExampleExtractor).to receive(:new).and_raise(ArgumentError, 'broken')
+      end
+
+      it 'records a describe problem instead of aborting the parse' do
+        YARD.parse(File.join(dir, '*.rb'))
+
+        expect(YardRspec::DescribeProblems.all)
+          .to eq(["#{dir}/widget_spec.rb:1: could not process the describe: ArgumentError: broken"])
+      end
+    end
+
     context 'when the referenced class is not in the registry' do
       let(:source) do
         <<~RUBY
@@ -371,6 +566,120 @@ RSpec.describe YardRspec::DescribeHandler do
       # A warning would fail `yard --fail-on-warning`.
       it 'does not log a YARD warning' do
         expect(YARD::Logger.instance).not_to receive(:warn)
+
+        parse(source)
+      end
+    end
+
+    context 'when an imprecise describe string names a missing method' do
+      it 'records no describe problem, since the text is not meant as a method name' do
+        parse(<<~RUBY)
+          class Widget; end
+
+          describe Widget, '#initialize via the factory' do
+            it 'builds' do; end
+          end
+        RUBY
+
+        expect(YardRspec::DescribeProblems.all).to eq([])
+      end
+    end
+
+    context 'when the describe names a topic instead of a class' do
+      before do
+        parse(<<~RUBY)
+          class Widget
+            def spin; end
+          end
+
+          describe 'Spinning semantics', '#spin' do
+            it 'spins' do; end
+          end
+        RUBY
+      end
+
+      it 'attaches no examples' do
+        expect(YARD::Registry.at('Widget#spin')[:rspec_examples]).to be_nil
+      end
+
+      it 'records no describe problem' do
+        expect(YardRspec::DescribeProblems.all).to eq([])
+      end
+    end
+
+    context 'when the describe is inside the body of the described class' do
+      it 'attaches the examples to the method' do
+        parse(<<~RUBY)
+          class Widget
+            def spin; end
+
+            describe Widget, '#spin' do
+              it 'spins' do; end
+            end
+          end
+        RUBY
+
+        expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
+          .to eq([{ description: 'spins', code: '' }])
+      end
+    end
+
+    # As in `SomeController = Class.new`, which YARD registers as a constant.
+    context 'when the described class is defined as a constant' do
+      let(:source) do
+        <<~RUBY
+          Widget = Class.new
+
+          describe Widget, '#spin' do
+            it 'spins' do; end
+          end
+        RUBY
+      end
+
+      it 'records no describe problem, since the constant exists' do
+        parse(source)
+
+        expect(YardRspec::DescribeProblems.all).to eq([])
+      end
+
+      # YARD catches and logs an exception raised by a handler.
+      it 'does not log a YARD error' do
+        expect(YARD::Logger.instance).not_to receive(:error)
+
+        parse(source)
+      end
+    end
+
+    context 'when describes have no block' do
+      let(:source) do
+        <<~RUBY
+          class Widget
+            def spin; end
+          end
+
+          RSpec.describe Widget
+          describe Widget, '#spin'
+          RSpec.describe Widget do
+            describe '#spin'
+          end
+        RUBY
+      end
+
+      it 'attaches no examples' do
+        parse(source)
+
+        expect(YARD::Registry.at('Widget#spin')[:rspec_examples]).to eq([])
+      end
+
+      it 'records no describe problem' do
+        parse(source)
+
+        expect(YardRspec::DescribeProblems.all).to eq([])
+      end
+
+      # YARD catches and logs an exception raised by a handler.
+      it 'does not log a YARD error' do
+        expect(YARD::Logger.instance).not_to receive(:error)
 
         parse(source)
       end
@@ -447,6 +756,10 @@ RSpec.describe YardRspec::DescribeHandler do
       it 'renders examples as list items inside a <ul>' do
         expect(html).to match(/<ul class="rspec">\s*<li><details>/)
       end
+
+      it 'closes the details and list item after the code' do
+        expect(html).to match(%r{</pre></details></li>\s*</ul>})
+      end
     end
 
     context 'when a method has an excluded example (xit)' do
@@ -497,6 +810,64 @@ RSpec.describe YardRspec::DescribeHandler do
       it 'renders the context as a group around its examples' do
         expect(html).to include('<li class="rspec_context"><span class="rspec_context_name">' \
                                 'when unnamed</span><ul class="rspec"><li><details>')
+      end
+    end
+
+    # Spec files are not trusted to contain HTML: a description could otherwise inject markup.
+    context 'when descriptions and code contain HTML' do
+      subject(:html) do
+        parse(<<~RUBY)
+          class Widget
+            # @return [String]
+            def name; end
+          end
+          describe Widget, '#name' do
+            context 'when <b>bold</b> & "quoted"' do
+              it 'returns <script>alert(1)</script>' do
+                expect(Widget.new.name).to eq('<i>widget</i>')
+              end
+            end
+          end
+        RUBY
+        render_method(YARD::Registry.at('Widget#name'))
+      end
+
+      it 'escapes the context description' do
+        expect(html).to include('<span class="rspec_context_name">' \
+                                'when &lt;b&gt;bold&lt;/b&gt; &amp; &quot;quoted&quot;</span>')
+      end
+
+      it 'escapes the example description' do
+        expect(html).to include('<summary>returns &lt;script&gt;alert(1)&lt;/script&gt;</summary>')
+      end
+
+      it 'escapes the example code' do
+        expect(html).to include('&lt;i&gt;widget&lt;/i&gt;')
+      end
+
+      it 'contains none of the tags as markup' do
+        expect(html).not_to match(%r{<b>|<script>|<i>widget</i>})
+      end
+    end
+
+    context 'when a context description is not a string' do
+      subject(:html) do
+        parse(<<~RUBY)
+          class Widget
+            # @return [String]
+            def name; end
+          end
+          describe Widget, '#name' do
+            context Widget do
+              it 'returns a string' do; end
+            end
+          end
+        RUBY
+        render_method(YARD::Registry.at('Widget#name'))
+      end
+
+      it 'renders the group with an empty name' do
+        expect(html).to include('<span class="rspec_context_name"></span>')
       end
     end
 
@@ -569,6 +940,12 @@ RSpec.describe YardRspec::DescribeHandler do
 
       expect(%w[css/rspec.css js/rspec.js].map {|file| fulldoc.find_file(file)})
         .to all(be_a(String))
+    end
+
+    # A relative path would only work when YARD runs from the gem's own directory.
+    it 'registers the templates by their absolute path' do
+      expect(YARD::Templates::Engine.template_paths)
+        .to include(File.expand_path('../../templates', __dir__))
     end
   end
 end

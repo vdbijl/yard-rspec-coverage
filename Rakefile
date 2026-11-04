@@ -5,7 +5,7 @@ require 'bundler/audit/task'
 require 'rspec/core/rake_task'
 require_relative 'lib/yard_rspec/rake_tasks'
 YardRspec::Config.minimum_rspec_coverage = 100.0
-YardRspec::Config.files = ['{lib,spec}/**/*.rb']
+YardRspec::Config.files = ['{lib,spec}/**/*.rb'] # .yardopts excludes spec/fixtures
 
 RSpec::Core::RakeTask.new('rspec') do |task|
   task.verbose = false # Hides the long ruby command line.

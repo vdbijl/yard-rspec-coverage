@@ -3,27 +3,33 @@
 module YardRspec
   # Which methods count for RSpec coverage.
   module Coverage
-    # @return [Regexp] Spec and helper files, whose methods need no specs.
-    SPEC_FILE_PATTERN = %r{(?:^|/)spec/|_spec\.rb$|_helper\.rb$}
+    # @return [Regexp] Files in a spec directory or ending in _spec.rb. Not any _helper.rb, which
+    #   would include Rails view helpers.
+    SPEC_FILE_PATTERN = %r{(?:^|/)spec/|_spec\.rb$}
 
-    # @return [<YARD::CodeObjects::MethodObject>]
+    # @param [String] file
+    # @return [Boolean] Whether the file is spec code, which needs no specs and no documentation.
+    def self.spec_file?(file)
+      file.match?(SPEC_FILE_PATTERN)
+    end
+
+    # @return [<YARD::CodeObjects::MethodObject>] The methods that need specs, see {countable?}.
     def self.countable_methods
       YARD::Registry.all(:method).select {|method| countable?(method)}
     end
 
-    # Attributes and aliases have no behaviour of their own to spec.
     # @param [YARD::CodeObjects::MethodObject] method
-    # @return [Boolean]
+    # @return [Boolean] True for a public method outside spec files. Attributes and aliases are
+    #   left out: they have no behaviour of their own.
     def self.countable?(method)
       method.visibility == :public &&
-        !method.file.to_s.match?(SPEC_FILE_PATTERN) &&
+        !spec_file?(method.file.to_s) &&
         !method.is_attribute? &&
         !method.is_alias?
     end
 
-    # Pending examples (`xit`) do not run, so they do not count.
     # @param [YARD::CodeObjects::MethodObject] method
-    # @return [Boolean]
+    # @return [Boolean] Whether it has an example that is not pending: `xit` does not run.
     def self.covered?(method)
       examples(method[:rspec_examples] || []).any? {|example| !example[:pending]}
     end

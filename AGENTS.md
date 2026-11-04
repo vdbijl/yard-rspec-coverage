@@ -15,9 +15,15 @@ lib/
     handler.rb                # YARD handler — parses describe/context blocks, attaches examples
     example_extractor.rb      # Extracts it/specify/example examples (as a context tree) from an AST block
     method_description.rb     # YardRspec::MethodDescription: '#run'/'.build' describe strings, method lookup
+    nested_method_describes.rb # YardRspec::NestedMethodDescribes: the '#method' describes in a describe block
+    ast_helpers.rb            # YardRspec::AstHelpers: AST checks and block_body_of, shared by the parsers
+    task_reports.rb           # YardRspec::TaskReports: output and options of yard:rspec_coverage
+    unquote.rb                # YardRspec::Unquote: strips the quotes around a string literal's source
     config.rb                 # YardRspec::Config: minimum_rspec_coverage (default 100.0), files
     coverage.rb               # YardRspec::Coverage.countable_methods: which methods need specs
     describe_problems.rb      # YardRspec::DescribeProblems: describes matching no class/method
+    parsed_describe.rb        # YardRspec::ParsedDescribe: a describe without its syntax tree; #attach
+    spec_objects.rb           # YardRspec::SpecObjects.remove: spec code out of the docs and stats
     rake_tasks.rb             # `require 'yard_rspec/rake_tasks'` entry point; loads the tasks
     stats.rb                  # Extends YARD::CLI::Stats with stats_for_rspec
   tasks/
@@ -31,27 +37,48 @@ templates/default/
   fulldoc/html/css/rspec.css  # Styles of the examples section
   fulldoc/html/js/rspec.js    # The "expand all" link
 
+script/compare_with_rspec/    # Not in the gem: compares the plugin with `rspec --dry-run` (see below)
+  run.rb                      # Entry point: dry run, plugin examples, comparison, report
+  example_lister.rb           # RSpec formatter loaded into the compared project's RSpec process
+
 spec/
   spec_helper.rb
   yard_rspec/
     describe_handler_spec.rb  # Handler + HTML template tests
     example_extractor_spec.rb # ExampleExtractor tests
     method_description_spec.rb # YardRspec::MethodDescription tests
+    nested_method_describes_spec.rb # NestedMethodDescribes tests
+    task_reports_spec.rb      # TaskReports tests
+    unquote_spec.rb           # Unquote tests
     config_spec.rb            # YardRspec::Config tests
     rake_tasks_spec.rb        # Rake task entry point tests
     coverage_spec.rb          # YardRspec::Coverage tests
     describe_problems_spec.rb # YardRspec::DescribeProblems tests
+    parsed_describe_spec.rb   # ParsedDescribe tests
+    spec_objects_spec.rb      # SpecObjects tests (with a real file list)
     stats_spec.rb             # stats_for_rspec tests
+    fixture_projects_spec.rb  # End-to-end: runs yard:rspec_coverage in each fixture project
+  fixtures/                   # Minimal consumer projects (Rakefile, lib/, spec/, .yardopts)
+    yardopts_files/           # .yardopts lists extra files and an --exclude
+    mixins/                   # Superclass, include/extend, cross-scope and nested describes
+    low_coverage/             # Uncovered and pending methods, describe problems, exit 1
+    lenient_minimum/          # Below 100% but above a lowered minimum: exit 0; also run with `yard`
 ```
 
 ## How the plugin works end-to-end
 
 1. **Parsing phase** (`yard doc` or `yard stats`): YARD parses all Ruby files, including
-   spec files. `DescribeHandler` fires on every `describe`/`context` call. When YARD parses a
-   file list (`YARD.parse`, `yard doc`, `yard stats`) it defers the work until all files are
-   parsed (closures in the parser `globals`, run by an `after_parse_list` callback), because
-   YARD postpones files with unknown namespaces and a spec may be parsed before its class.
-   With `YARD.parse_string` there is no file list, so it processes immediately. It then:
+   spec files. `DescribeHandler` fires on every `describe`/`context` call. It works in two
+   phases. At parse time it reads everything it needs from the syntax tree into a
+   `ParsedDescribe`: the class name, and per described method a `MethodDescription` and the
+   examples. `ParsedDescribe#attach` then resolves the class and attaches the examples. When
+   YARD parses a file list (`YARD.parse`, `yard doc`, `yard stats`), the ParsedDescribes wait in
+   the parser `globals` until all files are parsed (an `after_parse_list` callback attaches
+   them), because YARD postpones files with unknown namespaces and a spec may be parsed before
+   its class. A waiting describe must keep no syntax tree node: that kept every spec file's tree
+   in memory (about 0.25 MB per spec file, 150 MB extra peak for ~600 spec files), and a spec in
+   `describe_handler_spec.rb` checks it. With `YARD.parse_string` there is no file list, so it
+   attaches right away. Together the phases:
    - Resolves the class name from the first parameter
    - Parses the second parameter into a `MethodDescription`: method name and scope
      (`:instance` for `#`, `:class` for `.`)
@@ -61,7 +88,7 @@ spec/
      write `#` for class methods)
    - Calls `ExampleExtractor` on the block body to collect `it`/`specify`/`example` examples
    - Stores a tree on `method_obj[:rspec_examples]`: each node is either an example
-     `{description:, code:}` (plus `pending: true` for `xit`/`xspecify`/`xexample`) or a context group `{description:, children: [...]}`
+     `{description:, code:}` (plus `pending: true` for `xit`/`xspecify`/`xexample` and examples without a block) or a context group `{description:, children: [...]}`
    - Records a describe problem when a described class or method cannot be found (see
      describe problems below)
 
@@ -74,15 +101,16 @@ spec/
    - If `object[:rspec_examples]` is populated → renders the tree as nested lists, with the
      number of examples in the heading and an "expand all" link when there is more than one.
      Each example is a collapsible `<details>` element whose summary is the description, with a
-     "pending" label for `x` variants; the code is highlighted with YARD's
+     "pending" label for pending examples; the code is highlighted with YARD's
      `html_syntax_highlight`, like the method source
    - If empty/nil and `YardRspec::Coverage.countable?(object)` → renders the "RSpec Examples:"
      heading with a red "no specs" label, and no list. No warning is logged at render time
    - If empty/nil and the method is not countable (attribute, alias, private method) → renders
      nothing, like the coverage gate that does not report such methods
 
-3. **Coverage gate** (`rake yard:rspec_coverage`): parses `YardRspec::Config.files`, combined
-   with the project's `.yardopts` the way `yard doc` does (so `--exclude` applies), takes
+3. **Coverage gate** (`rake yard:rspec_coverage`): parses `YardRspec::Config.files` with the
+   options of the project's `.yardopts` (so `--exclude` applies); the files listed in `.yardopts`
+   are ignored, unlike in `yard doc` and `yard:doc`, which add the given files to them. It takes
    `YardRspec::Coverage.countable_methods` and prints `RSpec coverage: X/Y (Z%)` plus a
    `file:line: Class#method` list of methods without examples (pending ones, `xit`, do not count). Exits 1 when coverage is
    below `YardRspec::Config.minimum_rspec_coverage` (default 100.0; override in the
@@ -102,11 +130,22 @@ render phases.
 
 **Cross-scope fallback in `MethodDescription#find_in`**: when `#method` is not found as
 `:instance`, we retry as `:class` (and vice versa). Specs often write `#` for class methods.
+Last, `'.new'` and `'#new'` fall back to `#initialize`, which YARD documents for the constructor.
 
 **Which methods count** (`YardRspec::Coverage.countable_methods`, used by both the coverage
 gate and the stats row): public methods, except those defined in files matching
-`Coverage::SPEC_FILE_PATTERN` (`%r{(?:^|/)spec/|_spec\.rb$|_helper\.rb$}`), attribute
-readers/writers and aliases. Attributes and aliases have no behaviour of their own to spec.
+`Coverage::SPEC_FILE_PATTERN` (`%r{(?:^|/)spec/|_spec\.rb$}`), attribute
+readers/writers and aliases. Attributes and aliases have no behaviour of their own to spec. The
+pattern deliberately does not match any `_helper.rb`: that would include Rails view helpers in
+`app/helpers`.
+
+**Spec code is no part of the documentation** (`YardRspec::SpecObjects.remove`): YARD parses the
+spec files for their examples, but would also document what they define outside describe blocks
+(`spec/support` modules, fake classes, top-level `def`s), and count it in `yard stats`. The
+`after_parse_list` callback removes those objects from the registry after the deferred describes
+have attached their examples, and removes spec files from the files of a class a spec reopens.
+With `YARD.parse_string` (no file list) nothing is removed. A namespace of another gem
+(`class Rack::Static::Middleware` in a spec) is a `Proxy` without children.
 
 **Stats do not affect "% documented"**: `stats_for_rspec` calls `log.puts` directly instead
 of YARD's `output()`, so `@total` and `@undocumented` are never changed.
@@ -119,7 +158,13 @@ would then fail. When the describe string has extra text beyond the method name
 (e.g. `'#initialize via SomeFactory'`), no problem is recorded — these are intentionally
 imprecise describe strings. "could not resolve class" is also skipped when the class is defined
 in the running Ruby but not parsed (e.g. `describe YARD::CLI::Stats`), since describing a class
-from another gem is not a typo.
+from another gem is not a typo. A describe of a class defined as a constant (`Widget =
+Class.new`, which YARD registers as a `ConstantObject` without methods) is skipped without a
+problem for the same reason.
+
+**Missing blocks**: any `describe`, `context` or `it` may be written without a block
+(`it 'spins later'`). Get a block body with `AstHelpers#block_body_of`, which returns nil then;
+`node.last.last` would return the last argument, or `false`.
 
 ## How to add new functionality
 
@@ -129,8 +174,8 @@ The README section "Not supported" lists the RSpec keywords and forms that are d
 recognized (`fit`, `pending`, `scenario`, `its`, shared examples, `xdescribe`, ...). Keep
 that list in sync when adding support for one of them.
 
-Extend `DescribeHandler#process` or `#process_nested_describes`. The data attachment point
-is always `attach_examples_to(method_obj, block_body)`.
+Extend `DescribeHandler#parse_describe` (reads the syntax tree) and, if the lookup changes,
+`ParsedDescribe#attach`. Read the tree only in the handler, and pass plain values on.
 
 ### New HTML output per method
 
@@ -145,11 +190,16 @@ directly to avoid affecting the documentation percentage.
 
 ### New reports about describe blocks or missing specs
 
-Do not log YARD warnings. Record describe block problems with `DescribeProblems.add` in
-`DescribeHandler` (see `add_missing_method_problem`); the `yard:rspec_coverage` rake task prints
+Do not log YARD warnings. Record describe block problems with `DescribeProblems.add` (see
+`ParsedDescribe#attach_entry`); the `yard:rspec_coverage` rake task prints
 them. Missing-spec reporting also lives in that task, not in `setup.rb`.
 For per-method rendering logic use `setup.rb`/`rspec_specs.erb`; `object` is the current
 `YARD::MethodObject`.
+
+## Code style
+
+- Write `private_class_method :name` on the line directly below the `def self.name` it hides, not
+  in a list at the end.
 
 ## Testing conventions
 
@@ -163,6 +213,16 @@ For per-method rendering logic use `setup.rb`/`rspec_specs.erb`; `object` is the
   `method_obj.instance_variable_set(:@files, [['spec/support/helpers.rb', 1]])` rather
   than `allow(method_obj).to receive(:file)`.
 - Set message expectations (`expect(...).to receive(...)`) before the action, not after.
+- An example fails when YARD logs an error (hook in `spec_helper.rb`). YARD catches an exception
+  raised by a handler and only logs it, so without the hook a crashing handler passes the specs.
+- For behaviour that depends on how YARD treats a real project (`.yardopts`, file globs, plugin
+  loading), add or extend a project in `spec/fixtures/` and an example in
+  `fixture_projects_spec.rb`, which runs the task in a new process inside the project. Fixture
+  paths must stay relative: `Coverage::SPEC_FILE_PATTERN` matches `spec/` anywhere in a path, so
+  absolute paths under `spec/fixtures/` would make every method uncountable. The fixtures are
+  other projects, with deliberate describe problems: they are excluded from the RSpec run
+  (`.rspec`), RuboCop (`.rubocop.yml`) and this project's own YARD runs (`--exclude` in
+  `.yardopts`, which `yard:rspec_coverage` and `yard:doc` apply too).
 - When invoking `yard:rspec_coverage` in a spec, make sure coverage meets the minimum (e.g. set
   `YardRspec::Config.minimum_rspec_coverage = 0.0`). The task calls `exit 1` otherwise, and
   RSpec then silently stops the run while reporting "0 failures".
@@ -174,6 +234,40 @@ bundle exec rspec
 bundle exec rubocop --cache false lib/ spec/ templates/
 bundle exec rake    # all checks, see below
 ```
+
+Mutation testing is not part of the build. It needs the open source `mutaruby` gem, which is not
+in the Gemfile (install it in the gemset), and takes several minutes:
+
+```bash
+mutaruby --test "bundle exec rspec" --coverage --strict-ignore 'lib/**/*.rb' 'templates/**/*.rb'
+mutaruby --test "bundle exec rspec" --coverage lib/yard_rspec/handler.rb   # one file
+```
+
+`.mutaruby-ignore.yml` lists the equivalent mutants, each with the reason it cannot be killed. A
+surviving mutant that is not in it is either a missing spec or dead code. Add an entry only when
+the mutation really does not change behaviour; `--suggest-ignore` prints stubs. It does not mutate
+`lib/tasks/yard_rspec.rake` (not a `.rb` file). `--coverage` cannot map specs that run in a
+subprocess (the fixture projects), nor the template files, which YARD loads without `require`:
+those mutants run the whole suite.
+
+Specs only check what we think RSpec does. `script/compare_with_rspec/run.rb` checks that the
+plugin finds the same examples as RSpec in a real project. It runs `rspec --dry-run` there with a
+formatter (`example_lister.rb`) that lists each example's file, line, description, groups and
+pending status, and matches those with the plugin's examples by the file and line of their `it`:
+
+```bash
+bundle exec ruby script/compare_with_rspec/run.rb ../other-project \
+  "rvm ruby-3.3@other-gemset do bundle exec rspec"
+```
+
+The second argument runs RSpec with that project's own Ruby and gems. The dry run loads the spec
+files (their top-level code runs, the examples do not). It prints counts per category and the
+first entries of the ones that need a look; the full report goes to a temporary directory. To be
+expected: examples outside a method describe, examples from `it_behaves_like`, and examples of
+describes naming methods that do not exist (the project's describe problems). It found the
+descriptions split over several lines and `describe '.new'`. The dry run needs a project whose
+own `bundle exec rspec` starts; a gem version conflict in its environment stops it. The scripts are
+not part of the gem.
 
 `rake` (the default task) runs RuboCop, `bundle:audit`, `spec:coverage`, `yard:coverage` and
 `yard:rspec_coverage`. It does not run `yard:doc`, which writes HTML to `doc/`; the specs already

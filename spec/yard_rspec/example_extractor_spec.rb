@@ -233,5 +233,273 @@ RSpec.describe YardRspec::ExampleExtractor do
         expect(examples).to match([direct, group])
       end
     end
+
+    # RSpec reports an example without a block as pending: "Not yet implemented".
+    context 'with an example without a block' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            it 'runs twice'
+          end
+        RUBY
+      end
+
+      it 'returns it as a pending example without code' do
+        expect(examples).to eq([{ description: 'runs twice', code: '', pending: true }])
+      end
+    end
+
+    context 'with a context without examples' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            context 'when stopped' do
+            end
+            it 'runs' do; end
+          end
+        RUBY
+      end
+
+      it 'leaves the context out' do
+        expect(examples).to eq([{ description: 'runs', code: '' }])
+      end
+    end
+
+    context 'with let, before and subject next to the examples' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            let(:speed) { 3 }
+            subject(:runner) { Subject.new }
+            before do
+              runner.prepare
+            end
+            it 'runs' do; end
+          end
+        RUBY
+      end
+
+      it 'returns only the examples' do
+        expect(examples).to eq([{ description: 'runs', code: '' }])
+      end
+    end
+
+    # The README section "Not supported" lists these; a change in behaviour should be deliberate.
+    context 'with constructs that are not recognized as examples' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            it('with parentheses') { }
+            it { is_expected.to be_ok }
+            it do; end
+            fit 'focused' do; end
+            fspecify 'focused specify' do; end
+            fexample 'focused example' do; end
+            pending 'pending keyword' do; end
+            skip 'skip keyword' do; end
+            scenario 'capybara' do; end
+            its(:size) { is_expected.to eq(1) }
+            it_behaves_like 'a runner'
+            it_should_behave_like 'a runner'
+            include_examples 'a runner'
+            include_context 'a runner'
+          end
+        RUBY
+      end
+
+      it 'returns no examples' do
+        expect(examples).to eq([])
+      end
+    end
+
+    context 'with focused and excluded groups, which are not recognized as groups' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            xdescribe 'excluded' do
+              it 'in xdescribe' do; end
+            end
+            fcontext 'focused' do
+              it 'in fcontext' do; end
+            end
+            example_group 'old style' do
+              it 'in example_group' do; end
+            end
+          end
+        RUBY
+      end
+
+      it 'returns their examples without the group' do
+        expect(examples.map {|example| example[:description]})
+          .to eq(['in xdescribe', 'in fcontext', 'in example_group'])
+      end
+    end
+
+    # As the README says: their examples are listed as if they were written in the describe block.
+    context 'with examples inside shared_examples' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            shared_examples 'a runner' do
+              it 'runs' do; end
+            end
+          end
+        RUBY
+      end
+
+      it 'returns the examples without a group for shared_examples' do
+        expect(examples).to eq([{ description: 'runs', code: '' }])
+      end
+    end
+
+    context 'with an example whose code has a blank line' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            it 'runs twice' do
+              subject.run
+
+              subject.run
+            end
+          end
+        RUBY
+      end
+
+      it 'removes the common indentation of the other lines' do
+        expect(examples.first[:code]).to eq("subject.run\n\nsubject.run")
+      end
+    end
+
+    context 'with a context without a block' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            context 'when stopped'
+            it 'runs' do; end
+          end
+        RUBY
+      end
+
+      it 'leaves the context out' do
+        expect(examples).to eq([{ description: 'runs', code: '' }])
+      end
+    end
+
+    context 'with interpolated descriptions' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~'RUBY')
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            it "runs #{count} times" do; end
+            it "#{count} runs" do; end
+          end
+        RUBY
+      end
+
+      it 'returns the descriptions as written, with the interpolation' do
+        expect(examples.map {|example| example[:description]})
+          .to eq(["runs \#{count} times", "\#{count} runs"])
+      end
+    end
+
+    context 'with a description split over several lines' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~'RUBY')
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            it 'runs once '\
+               'and then ' \
+               "#{count} times" do; end
+          end
+        RUBY
+      end
+
+      it 'returns the parts joined, as RSpec does' do
+        expect(examples.map {|example| example[:description]})
+          .to eq(["runs once and then \#{count} times"])
+      end
+    end
+
+    context 'with a description that is not a string literal or is empty' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Subject
+            def run; end
+          end
+          describe Subject, '#run' do
+            it :runs do; end
+            it '' do; end
+            it format('runs %s', 1) do; end
+          end
+        RUBY
+      end
+
+      it 'returns example as the description, also for a string inside another argument' do
+        expect(examples.map {|example| example[:description]}).to eq(%w[example example example])
+      end
+    end
+
+    context 'with an example on the first line of the source' do
+      subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
+
+      before do
+        YARD.parse_string('class Subject; def run; end; end; ' \
+                          "describe Subject, '#run' do it 'runs' do run end end")
+      end
+
+      it 'returns the code of the example' do
+        expect(examples).to eq([{ description: 'runs', code: 'run' }])
+      end
+    end
   end
 end

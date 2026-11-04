@@ -40,4 +40,18 @@ RSpec.describe YardRspec::DescribeProblems do
       expect(described_class.all).to eq(["spec/car_spec.rb:3: could not resolve class 'Car'"])
     end
   end
+
+  describe '.recording_failure' do
+    it 'runs the block' do
+      expect {|block| described_class.recording_failure('spec/car_spec.rb:3', &block)}
+        .to yield_control
+    end
+
+    it 'records an error raised by the block as a problem' do
+      described_class.recording_failure('spec/car_spec.rb:3') {raise ArgumentError, 'broken'}
+
+      expect(described_class.all)
+        .to eq(['spec/car_spec.rb:3: could not process the describe: ArgumentError: broken'])
+    end
+  end
 end

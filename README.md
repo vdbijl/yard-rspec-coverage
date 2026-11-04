@@ -38,6 +38,10 @@ yard doc --plugin rspec-coverage 'lib/**/*.rb' 'spec/**/*.rb'
 List the spec files explicitly: without file arguments (or files in `.yardopts`) YARD only parses
 `lib/` and `app/`, so it finds no examples.
 
+The spec files are parsed for their examples only. Classes, modules and methods they define
+outside describe blocks, such as helpers in `spec/support`, are left out of the documentation and
+of `yard stats`. Spec files are the files in a `spec/` directory and files ending in `_spec.rb`.
+
 ### Rake tasks
 
 Declare the gem with `require: false` in your Gemfile, so you choose which YARD runs use the
@@ -56,9 +60,10 @@ This defines two tasks:
 - `rake yard:doc` generates the documentation with the `rspec-coverage` plugin. It writes to `doc/`, like
   other YARD tasks such as `yard:coverage`, so run it last.
 - `rake yard:rspec_coverage` lists the public methods without RSpec examples and fails when the
-  coverage is below `minimum_rspec_coverage`. Attribute readers/writers and aliases are not
-  counted. It also lists describe blocks that name a class or method that cannot be found, such
-  as a typo, without failing.
+  coverage is below `minimum_rspec_coverage`. Attribute readers/writers, aliases and code in
+  spec files are not counted. It also lists describe blocks that name a class or method that cannot be found, such
+  as a typo, without failing. It parses only `YardRspec::Config.files`: the options in
+  `.yardopts`, such as `--exclude`, apply, but the files listed there do not.
 
 The plugin never logs YARD warnings, so it is safe in YARD runs with `--fail-on-warning`.
 
@@ -113,11 +118,14 @@ The plugin supports the following RSpec syntax:
 
 - `describe ClassName, '#method_name'` for instance methods
 - `describe ClassName, '.method_name'` for class methods
-- `it "description"` blocks within describe blocks
+- `describe ClassName, '.new'` (or `'#new'`) for the constructor, documented as `#initialize`,
+  unless the class defines a class method `new` itself
+- `it "description"` blocks within describe blocks, also with a description split over several
+  lines as adjacent strings (`'spins ' \ 'twice'`)
 - `specify "description"` and `example "description"` blocks (aliases for `it`)
-- `xit`, `xspecify` and `xexample` blocks (excluded examples), shown with a "(pending)" suffix.
-  They do not count as coverage: a method with only pending examples is reported as without
-  specs.
+- `xit`, `xspecify` and `xexample` blocks (excluded examples) and examples without a block
+  (`it 'spins twice'`, which RSpec reports as "Not yet implemented"), labelled "pending". They do
+  not count as coverage: a method with only pending examples is reported as without specs.
 - nested `context "..."` and `describe "..."` blocks, shown as groups of examples
 
 ### Not supported
@@ -142,20 +150,21 @@ documentation and do not count towards RSpec coverage.
 
 Limitations of the supported constructs:
 
-- Only the text before the first interpolation of a description is kept: `it "loop #{index}"`
-  is shown as `loop `. Examples generated in a loop are listed once.
-- Examples whose description is not a string literal are shown as `example`.
+- A description is shown as written in the spec. So interpolation stays visible
+  (`it "loop #{index}"` is shown as `loop #{index}`) and so do escape sequences (`it "a\tb"` is
+  shown as `a\tb`, where RSpec shows a tab). Examples generated in a loop are listed once.
+- Examples whose description is not a string literal, or is empty, are shown as `example`. That
+  includes a heredoc (`it <<~DESC do`).
 
 ## Development
 
-To test the plugin with the example code:
+To build the plugin's own documentation, with its specs embedded:
 
 ```bash
-bundle install
 ./build.sh
 ```
 
-Then open `doc/index.html` in your browser to see the generated documentation.
+Then open `doc/index.html` in your browser. `build.sh` also runs all the checks below.
 
 Run all checks (RuboCop, a dependency vulnerability audit, the specs with SimpleCov, YARD
 documentation coverage and RSpec coverage) with:
