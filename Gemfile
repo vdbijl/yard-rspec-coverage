@@ -6,6 +6,7 @@ gemspec
 
 group :development do
   gem 'bundler-audit', '>= 0.9'
+  gem 'mutaruby', '>= 0.3' # Mutation testing, see rake prerelease:mutation
   gem 'rake', '>= 12.0'
   gem 'redcarpet', '>= 3.4' # Markdown for YARD, see .yardopts
   gem 'rspec', '>= 3.0'

@@ -15,6 +15,9 @@ AllCops:
   Exclude:
     - spec/fixtures/**/*
 
+Layout/LineContinuationSpacing:
+  EnforcedStyle: no_space
+
 Layout/LineLength:
   Max: 100
 

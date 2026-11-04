@@ -74,8 +74,8 @@ module YardRspec
     # @param [YARD::Parser::Ruby::AstNode, nil] block_body
     # @return [ParsedDescribe::Entry]
     def entry(description, block_body, line)
-      examples = description ? ExampleExtractor.new(block_body).extract : []
-      ParsedDescribe::Entry.new(description, examples, location_of(line))
+      ParsedDescribe::Entry.new(description, ExampleExtractor.new(block_body).extract,
+                                location_of(line))
     end
 
     # @return [String] 'file:line', by default the line of the statement.

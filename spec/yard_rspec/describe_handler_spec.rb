@@ -496,6 +496,30 @@ RSpec.describe YardRspec::DescribeHandler do
       end
     end
 
+    context 'when attaching a describe of a parsed file list fails' do
+      let(:dir) {Dir.mktmpdir}
+
+      after {FileUtils.remove_entry(dir)}
+
+      before do
+        File.write(File.join(dir, 'widget.rb'), "class Widget\n  def spin; end\nend\n")
+        File.write(File.join(dir, 'widget_spec.rb'),
+                   "describe Widget, '#spin' do\n  it 'spins' do; end\nend\n")
+        allow(YardRspec::ParsedDescribe).to receive(:new).and_wrap_original do |new, **arguments|
+          new.call(**arguments).tap do |parsed|
+            allow(parsed).to receive(:attach).and_raise(ArgumentError, 'broken')
+          end
+        end
+      end
+
+      it 'records a describe problem with the location of the describe' do
+        YARD.parse(File.join(dir, '*.rb'))
+
+        expect(YardRspec::DescribeProblems.all)
+          .to eq(["#{dir}/widget_spec.rb:1: could not process the describe: ArgumentError: broken"])
+      end
+    end
+
     context 'when the referenced class is not in the registry' do
       let(:source) do
         <<~RUBY
@@ -778,7 +802,7 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'labels the excluded example as pending' do
-        expect(html).to include('<summary>returns nil when unnamed ' \
+        expect(html).to include('<summary>returns nil when unnamed '\
                                 '<span class="rspec_label rspec_pending">pending</span>')
       end
 
@@ -808,7 +832,7 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'renders the context as a group around its examples' do
-        expect(html).to include('<li class="rspec_context"><span class="rspec_context_name">' \
+        expect(html).to include('<li class="rspec_context"><span class="rspec_context_name">'\
                                 'when unnamed</span><ul class="rspec"><li><details>')
       end
     end
@@ -833,7 +857,7 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'escapes the context description' do
-        expect(html).to include('<span class="rspec_context_name">' \
+        expect(html).to include('<span class="rspec_context_name">'\
                                 'when &lt;b&gt;bold&lt;/b&gt; &amp; &quot;quoted&quot;</span>')
       end
 
@@ -921,7 +945,7 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'labels the RSpec Examples heading with no specs' do
-        expect(html).to include('<p class="tag_title">RSpec Examples: ' \
+        expect(html).to include('<p class="tag_title">RSpec Examples: '\
                                 '<span class="rspec_label rspec_missing">no specs</span></p>')
       end
     end

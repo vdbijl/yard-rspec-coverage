@@ -3,7 +3,7 @@
 /pkg/
 /coverage/
 /doc/
-/.yardoc/
+.yardoc/
 /.bundle/
 /vendor/bundle
 

@@ -42,3 +42,5 @@ end
 
 desc 'Run all checks: RuboCop, dependency audit, RSpec with coverage, and YARD coverage'
 task default: %i[rubocop bundle:audit spec:coverage yard:coverage yard:rspec_coverage]
+
+load File.expand_path('script/prerelease.rake', __dir__) # Not part of the gem.

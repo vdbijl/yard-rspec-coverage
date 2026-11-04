@@ -158,6 +158,30 @@ RSpec.describe YardRspec::MethodDescription do
       end
     end
 
+    context 'when a superclass has an instance method and a class method with the same name' do
+      subject(:namespace) {YARD::Registry.at('Gizmo')}
+
+      before do
+        YARD.parse_string(<<~RUBY)
+          class Base
+            def call; end
+
+            def self.call; end
+          end
+
+          class Gizmo < Base; end
+        RUBY
+      end
+
+      it 'finds the inherited instance method for a # prefix' do
+        expect(described_class.parse('#call').find_in(namespace).path).to eq('Base#call')
+      end
+
+      it 'finds the inherited class method for a . prefix' do
+        expect(described_class.parse('.call').find_in(namespace).path).to eq('Base.call')
+      end
+    end
+
     context 'when an instance method and a class method have the same name' do
       subject(:namespace) {YARD::Registry.at('Gadget')}
 

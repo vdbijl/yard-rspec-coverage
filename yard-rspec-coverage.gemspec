@@ -2,9 +2,9 @@
 
 Gem::Specification.new do |s|
   s.name        = 'yard-rspec-coverage'
-  s.version     = '0.1.3'
+  s.version     = '0.2.0'
   s.summary     = 'YARD plugin to display RSpec examples in documentation and report RSpec coverage'
-  s.description = 'A YARD plugin that embeds RSpec examples alongside method documentation, ' \
+  s.description = 'A YARD plugin that embeds RSpec examples alongside method documentation, '\
                   'and reports public methods without specs'
   s.authors     = ['vdbijl']
   s.files       = Dir['lib/**/*', 'templates/**/*', 'README.md', 'CHANGELOG.md', 'LICENSE']

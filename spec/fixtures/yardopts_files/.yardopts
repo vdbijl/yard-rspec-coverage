@@ -1,0 +1,2 @@
+--exclude lib/generated.rb
+app/**/*.rb

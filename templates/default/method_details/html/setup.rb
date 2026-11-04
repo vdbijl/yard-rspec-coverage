@@ -21,15 +21,15 @@ end
 # @return [String]
 def rspec_example_html(example)
   pending = example[:pending] ? ' <span class="rspec_label rspec_pending">pending</span>' : ''
-  "<li><details><summary>#{h(example[:description])}#{pending}</summary>" \
-    "<pre class=\"example code\">#{html_syntax_highlight(example[:code], :ruby)}</pre>" \
+  "<li><details><summary>#{h(example[:description])}#{pending}</summary>"\
+    "<pre class=\"example code\">#{html_syntax_highlight(example[:code], :ruby)}</pre>"\
     '</details></li>'
 end
 
 # @param [{description: String, children: [<Hash>]}] group
 # @return [String]
 def rspec_group_html(group)
-  '<li class="rspec_context">' \
-    "<span class=\"rspec_context_name\">#{h(group[:description])}</span>" \
+  '<li class="rspec_context">'\
+    "<span class=\"rspec_context_name\">#{h(group[:description])}</span>"\
     "<ul class=\"rspec\">#{rspec_nodes_html(group[:children])}</ul></li>"
 end

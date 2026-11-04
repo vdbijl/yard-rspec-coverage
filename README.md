@@ -175,11 +175,20 @@ bundle exec rake
 
 ### Releasing
 
-Update the version in `yard-rspec-coverage.gemspec` and `CHANGELOG.md`, then push a matching tag:
+Update the version in `yard-rspec-coverage.gemspec` and `CHANGELOG.md` (a `## <version>` heading
+instead of `## Unreleased`), commit, and run the checks for a release:
 
 ```bash
-git tag v0.1.3
-git push origin v0.1.3
+bundle exec rake prerelease
+```
+
+It checks the commit, runs `rake` and `yard:doc`, builds and tests the gem, and runs mutation
+testing. Set `COMPARE_PROJECT` (and `COMPARE_RSPEC`) to also compare the plugin with
+`rspec --dry-run` in a real project, see `AGENTS.md`. Then push a matching tag:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The release workflow runs all checks and publishes the gem to rubygems.org with

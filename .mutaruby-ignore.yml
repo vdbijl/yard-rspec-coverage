@@ -1,0 +1,249 @@
+# Equivalent mutants for mutaruby (https://github.com/Atlas-Authorization/mutaruby): mutations
+# that cannot be killed because they do not change behaviour. Run:
+#   mutaruby --test "bundle exec rspec" --coverage 'lib/**/*.rb'
+- file: lib/yard-rspec-coverage.rb
+  operator: statement-delete
+  line: require 'yard'
+  mutation: require 'yard' => nil
+  reason: The yard executable and spec_helper.rb load YARD first; the require is for
+    a direct require of the plugin.
+- file: lib/yard_rspec/ast_helpers.rb
+  operator: call-to-receiver
+  line: node.is_a?(YARD::Parser::Ruby::AstNode)
+  method: YardRspec::AstHelpers#ast_node?
+  mutation: node.is_a?(YARD::Parser::Ruby::AstNode) => node
+  reason: Only AST nodes, nil and false are passed, so truthiness gives the same answer.
+- file: lib/yard_rspec/config.rb
+  operator: call-to-receiver
+  line: DEFAULT_FILES = ['{lib,spec}/**/*.rb'].freeze
+  mutation: "['{lib,spec}/**/*.rb'].freeze => ['{lib,spec}/**/*.rb']"
+  reason: Freezing a constant does not change behaviour.
+- file: lib/yard_rspec/coverage.rb
+  operator: call-to-receiver
+  line: "!spec_file?(method.file.to_s) &&"
+  method: YardRspec::Coverage.countable?
+  mutation: method.file.to_s => method.file
+  reason: 'Defensive: guards methods without a file, which the parsed sources do not
+    create.'
+- file: lib/yard_rspec/describe_problems.rb
+  operator: literal-symbol
+  line: REGISTRY_KEY = :rspec_describe_problems
+  mutation: ":rspec_describe_problems => :__mutaruby__"
+  reason: Any key name works, as long as add and all use the same one.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: call-to-receiver
+  line: node.children.find {|child| child.type == :string_content}.children.map(&:source).join
+  method: YardRspec::ExampleExtractor#string_text
+  mutation: node.children => node
+  reason: The first element of these YARD nodes is also their first child node.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: method-swap
+  line: start = node.source_range.first
+  method: YardRspec::ExampleExtractor#column_of
+  mutation: first => last
+  reason: A column that is too large only adds leading spaces to the first line, which
+    the final strip in dedent removes; it is the strip that matters when the first
+    statement is on the line of `do`.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: arithmetic
+  line: newline_before = node.full_source.rindex("\n", start - 1)
+  method: YardRspec::ExampleExtractor#column_of
+  mutation: "- => +"
+  reason: A column that is too large only adds leading spaces to the first line, which
+    the final strip in dedent removes; it is the strip that matters when the first
+    statement is on the line of `do`.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: literal-int
+  line: newline_before = node.full_source.rindex("\n", start - 1)
+  method: YardRspec::ExampleExtractor#column_of
+  mutation: 1 => 2
+  reason: A column that is too large only adds leading spaces to the first line, which
+    the final strip in dedent removes; it is the strip that matters when the first
+    statement is on the line of `do`.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: literal-int
+  line: newline_before = node.full_source.rindex("\n", start - 1)
+  method: YardRspec::ExampleExtractor#column_of
+  mutation: 1 => 0
+  reason: A column that is too large only adds leading spaces to the first line, which
+    the final strip in dedent removes; it is the strip that matters when the first
+    statement is on the line of `do`.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: condition-true
+  line: 'newline_before.nil? ? start : start - newline_before - 1'
+  method: YardRspec::ExampleExtractor#column_of
+  mutation: newline_before.nil? => true
+  reason: A column that is too large only adds leading spaces to the first line, which
+    the final strip in dedent removes; it is the strip that matters when the first
+    statement is on the line of `do`.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: arithmetic
+  line: 'newline_before.nil? ? start : start - newline_before - 1'
+  method: YardRspec::ExampleExtractor#column_of
+  mutation: "- => +"
+  reason: Both subtractions on this line. A column that is too large only adds leading
+    spaces to the first line, which the final strip in dedent removes; it is the strip
+    that matters when the first statement is on the line of `do`.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: literal-int
+  line: 'newline_before.nil? ? start : start - newline_before - 1'
+  method: YardRspec::ExampleExtractor#column_of
+  mutation: 1 => 0
+  reason: A column that is too large only adds leading spaces to the first line, which
+    the final strip in dedent removes; it is the strip that matters when the first
+    statement is on the line of `do`.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: logical-drop-right
+  line: min_indent = lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min ||
+    0
+  method: YardRspec::ExampleExtractor#dedent
+  mutation: lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min || 0 => lines.reject(&:empty?).map
+    {|line| line[/^\s*/].length}.min
+  reason: Only differs when every line is empty, and an empty line stays empty whatever
+    the indent.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: literal-int
+  line: min_indent = lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min ||
+    0
+  method: YardRspec::ExampleExtractor#dedent
+  mutation: 0 => 1
+  reason: Only differs when every line is empty, and an empty line stays empty whatever
+    the indent.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: literal-int
+  line: min_indent = lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min ||
+    0
+  method: YardRspec::ExampleExtractor#dedent
+  mutation: 0 => -1
+  reason: Only differs when every line is empty, and an empty line stays empty whatever
+    the indent.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: call-to-receiver
+  line: lines.map {|line| line[min_indent..] || line}.join("\n").strip
+  method: YardRspec::ExampleExtractor#dedent
+  mutation: lines.map {|line| line[min_indent..] || line}.join("\n").strip => lines.map
+    {|line| line[min_indent..] || line}.join("\n")
+  reason: Only differs for empty lines (nil joins as an empty string) or for leading
+    spaces that the final strip removes.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: logical-drop-right
+  line: lines.map {|line| line[min_indent..] || line}.join("\n").strip
+  method: YardRspec::ExampleExtractor#dedent
+  mutation: line[min_indent..] || line => line[min_indent..]
+  reason: Only differs for empty lines (nil joins as an empty string) or for leading
+    spaces that the final strip removes.
+- file: lib/yard_rspec/handler.rb
+  operator: statement-delete
+  line: namespace_only
+  mutation: namespace_only => nil
+  reason: Describes inside method bodies do not occur in spec files.
+- file: lib/yard_rspec/describe_problems.rb
+  operator: call-to-receiver
+  line: 'add("#{location}: could not process the describe: #{e.class}: #{e.message}")'
+  method: YardRspec::DescribeProblems.recording_failure
+  mutation: e.message => e
+  reason: String interpolation calls to_s, which returns the message.
+- file: lib/yard_rspec/handler.rb
+  operator: literal-nil
+  line: 'nil # Returning false would cancel the parse.'
+  mutation: nil => true
+  reason: Only false cancels the parse; any other value continues.
+- file: lib/yard_rspec/nested_method_describes.rb
+  operator: argument-removal
+  line: return enum_for(:each) if !block_given?
+  method: YardRspec::NestedMethodDescribes#each
+  mutation: ":each =>"
+  reason: enum_for enumerates each by default.
+- file: lib/yard_rspec/spec_objects.rb
+  operator: statement-delete
+  line: private_class_method :delete
+  mutation: private_class_method :delete => nil
+  reason: Visibility only; no behaviour change.
+- file: lib/yard_rspec/spec_objects.rb
+  operator: call-to-receiver
+  line: YARD::Registry.all.each do |object|
+  method: YardRspec::SpecObjects.remove
+  mutation: YARD::Registry.all => YARD::Registry
+  reason: YARD::Registry is Enumerable over the same objects.
+- file: lib/yard_rspec/task_reports.rb
+  operator: statement-delete
+  line: private_class_method :uncovered_methods
+  mutation: private_class_method :uncovered_methods => nil
+  reason: Visibility only; no behaviour change.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: call-to-receiver
+  line: node.children.map {|child| string_text(child)}.join
+  method: YardRspec::ExampleExtractor#string_text
+  mutation: node.children => node
+  reason: A string_concat node holds only child nodes, so iterating the node itself
+    is the same.
+- file: templates/default/method_details/html/setup.rb
+  operator: argument-removal
+  line: '"<pre class=\"example code\">#{html_syntax_highlight(example[:code], :ruby)}</pre>"\'
+  method: rspec_example_html
+  mutation: example[:code], :ruby => example[:code]
+  reason: Without a type, YARD highlights the source type of the method, which is
+    Ruby too; the explicit :ruby states that example code is always Ruby.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: call-to-receiver
+  line: PENDING_KEYWORDS = %i[xit xspecify xexample].freeze
+  reason: Freezing a constant does not change behaviour.
+- file: lib/yard_rspec/example_extractor.rb
+  operator: call-to-receiver
+  line: KEYWORDS = (%i[it specify example] + PENDING_KEYWORDS).freeze
+  reason: Freezing a constant does not change behaviour.
+- file: lib/yard_rspec/spec_objects.rb
+  operator: statement-delete
+  line: next if own_files == object.files
+  method: YardRspec::SpecObjects.remove
+  reason: Skips objects without spec files; replacing their files with the same list
+    is equivalent, except for objects without any file, which the parsed sources do
+    not create.
+- file: lib/yard_rspec/spec_objects.rb
+  operator: condition-false
+  line: next if own_files == object.files
+  method: YardRspec::SpecObjects.remove
+  reason: As the statement-delete entry on this line.
+- file: lib/yard_rspec/task_reports.rb
+  operator: literal-string
+  line: yardoc.parse_arguments('--no-output')
+  method: YardRspec::TaskReports.yardoc_with_yardopts
+  reason: "--no-output skips the markup check, which only fails in a project without
+    the markup gem (redcarpet is installed here)."
+- file: lib/yard_rspec/task_reports.rb
+  operator: argument-removal
+  line: yardoc.parse_arguments('--no-output')
+  method: YardRspec::TaskReports.yardoc_with_yardopts
+  reason: As the literal-string entry on this line.
+- file: lib/yard_rspec/method_description.rb
+  operator: logical-drop-left
+  line: 'namespace.child(name: method_name.to_sym, scope: scope, type: :method) ||'
+  method: YardRspec::MethodDescription#find_with_scope
+  mutation: 'namespace.child(name: method_name.to_sym, scope: scope, type: :method)
+    || namespace.meths(scope: scope, visibility: %i[public protected private], included:
+    true) .find {|method| method.name.to_s == method_name} => namespace.meths(scope:
+    scope, visibility: %i[public protected private], included: true) .find {|method|
+    method.name.to_s == method_name}'
+  reason: The direct lookup only saves time, since the full list of methods is slow for a
+    large class. Without it the search through the full list finds the same method.
+- file: lib/yard_rspec/method_description.rb
+  operator: call-to-receiver
+  line: 'namespace.child(name: method_name.to_sym, scope: scope, type: :method) ||'
+  method: YardRspec::MethodDescription#find_with_scope
+  mutation: method_name.to_sym => method_name
+  reason: A string never matches a method name, a symbol. The direct lookup then finds
+    nothing, and the search through the full list finds the method, as in the entry above.
+- file: lib/yard_rspec/method_description.rb
+  operator: literal-symbol
+  line: 'namespace.child(name: method_name.to_sym, scope: scope, type: :method) ||'
+  method: YardRspec::MethodDescription#find_with_scope
+  mutation: ":method => :__mutaruby__"
+  reason: With another type the direct lookup finds nothing, and the search through the
+    full list finds the method, as in the entries above.
+- file: lib/yard_rspec/spec_objects.rb
+  operator: call-to-receiver
+  line: next if own_files == object.files
+  method: YardRspec::SpecObjects.remove
+  mutation: object.files => object
+  reason: As the statement-delete entry on this line. The comparison is then never true,
+    so no object is skipped.

@@ -493,7 +493,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
 
       before do
-        YARD.parse_string('class Subject; def run; end; end; ' \
+        YARD.parse_string('class Subject; def run; end; end; '\
                           "describe Subject, '#run' do it 'runs' do run end end")
       end
 

@@ -62,7 +62,7 @@ module YardRspec
       elsif (method_obj = description.find_in(target))
         (method_obj[:rspec_examples] ||= []).concat(entry.examples)
       elsif !description.imprecise?
-        DescribeProblems.add("#{entry.location}: could not find method '#{description}' " \
+        DescribeProblems.add("#{entry.location}: could not find method '#{description}' "\
                              "on '#{@class_name}'")
       end
     end

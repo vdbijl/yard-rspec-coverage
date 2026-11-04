@@ -37,6 +37,8 @@ templates/default/
   fulldoc/html/css/rspec.css  # Styles of the examples section
   fulldoc/html/js/rspec.js    # The "expand all" link
 
+script/prerelease.rb          # Not in the gem: the checks of `rake prerelease`
+script/prerelease.rake        # Not in the gem: the `prerelease` tasks, loaded by the Rakefile
 script/compare_with_rspec/    # Not in the gem: compares the plugin with `rspec --dry-run` (see below)
   run.rb                      # Entry point: dry run, plugin examples, comparison, report
   example_lister.rb           # RSpec formatter loaded into the compared project's RSpec process
@@ -235,12 +237,12 @@ bundle exec rubocop --cache false lib/ spec/ templates/
 bundle exec rake    # all checks, see below
 ```
 
-Mutation testing is not part of the build. It needs the open source `mutaruby` gem, which is not
-in the Gemfile (install it in the gemset), and takes several minutes:
+Mutation testing is not part of the build. It uses the open source `mutaruby` gem, which is in the
+Gemfile, and takes several minutes:
 
 ```bash
-mutaruby --test "bundle exec rspec" --coverage --strict-ignore 'lib/**/*.rb' 'templates/**/*.rb'
-mutaruby --test "bundle exec rspec" --coverage lib/yard_rspec/handler.rb   # one file
+bundle exec mutaruby --test "bundle exec rspec" --coverage --strict-ignore 'lib/**/*.rb' 'templates/**/*.rb'
+bundle exec mutaruby --test "bundle exec rspec" --coverage lib/yard_rspec/handler.rb   # one file
 ```
 
 `.mutaruby-ignore.yml` lists the equivalent mutants, each with the reason it cannot be killed. A
@@ -253,7 +255,11 @@ those mutants run the whole suite.
 Specs only check what we think RSpec does. `script/compare_with_rspec/run.rb` checks that the
 plugin finds the same examples as RSpec in a real project. It runs `rspec --dry-run` there with a
 formatter (`example_lister.rb`) that lists each example's file, line, description, groups and
-pending status, and matches those with the plugin's examples by the file and line of their `it`:
+pending status, and matches those with the plugin's examples by the file and line of their `it`.
+Run it after changing how examples or describes are recognized (`ExampleExtractor`,
+`DescribeHandler`, `NestedMethodDescribes`, `MethodDescription`), before a release, and to
+investigate a report of a missing or wrong example. It is not needed for changes to the rake tasks,
+templates or stats:
 
 ```bash
 bundle exec ruby script/compare_with_rspec/run.rb ../other-project \
@@ -262,12 +268,27 @@ bundle exec ruby script/compare_with_rspec/run.rb ../other-project \
 
 The second argument runs RSpec with that project's own Ruby and gems. The dry run loads the spec
 files (their top-level code runs, the examples do not). It prints counts per category and the
-first entries of the ones that need a look; the full report goes to a temporary directory. To be
+first entries of the ones that need a look: `MISSED in a method describe`, `description differs`,
+`pending differs` and `plugin only`. The full report goes to a temporary directory. To be
 expected: examples outside a method describe, examples from `it_behaves_like`, and examples of
 describes naming methods that do not exist (the project's describe problems). It found the
 descriptions split over several lines and `describe '.new'`. The dry run needs a project whose
 own `bundle exec rspec` starts; a gem version conflict in its environment stops it. The scripts are
 not part of the gem.
+
+`rake prerelease` runs the checks for a release, on the release commit (version bumped, CHANGELOG
+heading `## <version>` instead of `## Unreleased`, everything committed). It takes several minutes
+and is not part of the build. Its steps are also tasks:
+
+- `prerelease:repository`: clean working tree, version newer than the latest tag, CHANGELOG entry.
+- `prerelease:checks`: `bundle:audit:update`, the default task and `yard:doc`.
+- `prerelease:package`: builds the gem, checks that it has the files it needs and none it should
+  not have, and runs `yard doc --plugin rspec-coverage` on a fixture with only the unpacked gem on
+  the load path.
+- `prerelease:mutation`: the mutaruby run described above, with `--strict-ignore`.
+- `prerelease:compare`: the comparison with RSpec above, in `COMPARE_PROJECT` with
+  `COMPARE_RSPEC` as the RSpec command. Skipped, with a message, without `COMPARE_PROJECT`; its
+  output is for a person to read.
 
 `rake` (the default task) runs RuboCop, `bundle:audit`, `spec:coverage`, `yard:coverage` and
 `yard:rspec_coverage`. It does not run `yard:doc`, which writes HTML to `doc/`; the specs already

@@ -1,0 +1,3 @@
+require 'yard_rspec/rake_tasks'
+
+YardRspec::Config.minimum_rspec_coverage = 50.0
