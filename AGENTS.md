@@ -13,7 +13,9 @@ lib/
   yard-rspec-coverage.rb      # Entry point: requires handler + stats, registers template path
   yard_rspec/
     handler.rb                # YARD handler — parses describe/context blocks, attaches examples
-    example_extractor.rb      # Extracts it/specify/example examples (as a context tree) from an AST block
+    example.rb                # YardRspec::Example: an it/specify/example, with description, code, pending?
+    example_group.rb          # YardRspec::ExampleGroup: a context/describe with its children
+    example_extractor.rb      # Extracts it/specify/example examples (as a tree of Example and ExampleGroup) from an AST block
     method_description.rb     # YardRspec::MethodDescription: '#run'/'.build' describe strings, method lookup
     nested_method_describes.rb # YardRspec::NestedMethodDescribes: the '#method' describes in a describe block
     ast_helpers.rb            # YardRspec::AstHelpers: AST checks and block_body_of, shared by the parsers
@@ -28,6 +30,11 @@ lib/
     stats.rb                  # Extends YARD::CLI::Stats with stats_for_rspec
   tasks/
     yard_rspec.rake           # yard:doc and yard:rspec_coverage (coverage gate) tasks
+
+sig/
+  yard.rbs                    # Types of the parts of YARD that lib/ uses; YARD ships none
+  yard_rspec.rbs              # What inline RBS cannot declare: module ivars, the example_node alias, OpenStruct attribute
+Steepfile                     # Steep checks lib/ with inline RBS annotations
 
 templates/default/
   method_details/html/
@@ -89,8 +96,11 @@ spec/
    - Falls back to the other scope if not found (cross-scope fallback — specs sometimes
      write `#` for class methods)
    - Calls `ExampleExtractor` on the block body to collect `it`/`specify`/`example` examples
-   - Stores a tree on `method_obj[:rspec_examples]`: each node is either an example
-     `{description:, code:}` (plus `pending: true` for `xit`/`xspecify`/`xexample` and examples without a block) or a context group `{description:, children: [...]}`
+   - Stores a tree on `method_obj[:rspec_examples]`: each node is either an `Example`
+     (`description`, `code`, and `pending?` for `xit`/`xspecify`/`xexample` and examples without a
+     block) or an `ExampleGroup` (`description`, `children`). Both answer `examples`, the examples
+     at any depth. The registry saves them with Marshal, so `yard` must load the plugin before it
+     loads a `.yardoc` that holds them
    - Records a describe problem when a described class or method cannot be found (see
      describe problems below)
 
@@ -137,7 +147,7 @@ Last, `'.new'` and `'#new'` fall back to `#initialize`, which YARD documents for
 **Which methods count** (`YardRspec::Coverage.countable_methods`, used by both the coverage
 gate and the stats row): public methods, except those defined in files matching
 `Coverage::SPEC_FILE_PATTERN` (`%r{(?:^|/)spec/|_spec\.rb$}`), attribute
-readers/writers and aliases. Attributes and aliases have no behaviour of their own to spec. The
+readers/writers and aliases. Attributes and aliases have no behavior of their own to spec. The
 pattern deliberately does not match any `_helper.rb`: that would include Rails view helpers in
 `app/helpers`.
 
@@ -165,7 +175,8 @@ Class.new`, which YARD registers as a `ConstantObject` without methods) is skipp
 problem for the same reason.
 
 **Missing blocks**: any `describe`, `context` or `it` may be written without a block
-(`it 'spins later'`). Get a block body with `AstHelpers#block_body_of`, which returns nil then;
+(`it 'spins later'`). Get a block body with `AstHelpers#block_body_of`, which returns the empty `EMPTY_BODY` then (check
+`node.block.nil?` to tell a missing block from an empty one);
 `node.last.last` would return the last argument, or `false`.
 
 ## How to add new functionality
@@ -200,6 +211,20 @@ For per-method rendering logic use `setup.rb`/`rspec_specs.erb`; `object` is the
 
 ## Code style
 
+- Every method in `lib/yard_rspec` and `lib/yard-rspec-coverage.rb` has an inline RBS signature
+  (`# @rbs name: Type -- description`, `# @rbs return: Type -- description`); constants and
+  attributes use a trailing `#: Type`. `yard-inline-rbs` (`--plugin inline-rbs`) turns them into
+  YARD tags, so write no `@param`/`@return` types next to them. Steep checks them (`rake steep`).
+- Not checked, so these keep YARD tags: `templates/` (top-level defs) and `lib/yard_rspec/stats.rb`
+  (`class_eval`; ignored in the Steepfile).
+- Inline RBS cannot type a `Struct`, `class << self` or module-level ivars: use plain classes,
+  `def self.name`, and declare the ivars in `sig/yard_rspec.rbs`.
+- Declare every instance variable with `# @rbs @name: Type`, as the first lines of the class body
+  (Steep ignores them elsewhere, as "Unused inline rbs annotation"). Without a declaration an
+  ivar is `untyped`, and Steep checks no call on it.
+- Prefer fixing a Steep error in `sig/yard.rbs`; use `# steep:ignore` only for a true limit of the
+  stubs, with the reason in a comment.
+
 - Write `private_class_method :name` on the line directly below the `def self.name` it hides, not
   in a list at the end.
 
@@ -217,7 +242,7 @@ For per-method rendering logic use `setup.rb`/`rspec_specs.erb`; `object` is the
 - Set message expectations (`expect(...).to receive(...)`) before the action, not after.
 - An example fails when YARD logs an error (hook in `spec_helper.rb`). YARD catches an exception
   raised by a handler and only logs it, so without the hook a crashing handler passes the specs.
-- For behaviour that depends on how YARD treats a real project (`.yardopts`, file globs, plugin
+- For behavior that depends on how YARD treats a real project (`.yardopts`, file globs, plugin
   loading), add or extend a project in `spec/fixtures/` and an example in
   `fixture_projects_spec.rb`, which runs the task in a new process inside the project. Fixture
   paths must stay relative: `Coverage::SPEC_FILE_PATTERN` matches `spec/` anywhere in a path, so
@@ -234,6 +259,7 @@ For per-method rendering logic use `setup.rb`/`rspec_specs.erb`; `object` is the
 ```bash
 bundle exec rspec
 bundle exec rubocop --cache false lib/ spec/ templates/
+bundle exec steep check
 bundle exec rake    # all checks, see below
 ```
 
@@ -247,7 +273,7 @@ bundle exec mutaruby --test "bundle exec rspec" --coverage lib/yard_rspec/handle
 
 `.mutaruby-ignore.yml` lists the equivalent mutants, each with the reason it cannot be killed. A
 surviving mutant that is not in it is either a missing spec or dead code. Add an entry only when
-the mutation really does not change behaviour; `--suggest-ignore` prints stubs. It does not mutate
+the mutation really does not change behavior; `--suggest-ignore` prints stubs. It does not mutate
 `lib/tasks/yard_rspec.rake` (not a `.rb` file). `--coverage` cannot map specs that run in a
 subprocess (the fixture projects), nor the template files, which YARD loads without `require`:
 those mutants run the whole suite.
@@ -290,11 +316,11 @@ and is not part of the build. Its steps are also tasks:
   `COMPARE_RSPEC` as the RSpec command. Skipped, with a message, without `COMPARE_PROJECT`; its
   output is for a person to read.
 
-`rake` (the default task) runs RuboCop, `bundle:audit`, `spec:coverage`, `yard:coverage` and
+`rake` (the default task) runs RuboCop, Steep, `bundle:audit`, `spec:coverage`, `yard:coverage` and
 `yard:rspec_coverage`. It does not run `yard:doc`, which writes HTML to `doc/`; the specs already
 render the template:
 
-- `bundle:audit` (bundler-audit) checks `Gemfile.lock` against a local database of known gem
+- `bundle:audit` (bundler-audit) checks the local `Gemfile.lock` (not committed: this is a gem) against a local database of known gem
   vulnerabilities. It does not update that database: run `bundle exec rake bundle:audit:update`
   first to get the latest advisories (this needs network access).
 

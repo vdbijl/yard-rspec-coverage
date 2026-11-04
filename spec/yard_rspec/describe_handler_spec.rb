@@ -38,20 +38,20 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'extracts the descriptions in order' do
-        descriptions = method_object[:rspec_examples].map {|example| example[:description]}
+        descriptions = method_object[:rspec_examples].map(&:description)
         expect(descriptions).to eq(
           ['adds two positive numbers', 'adds negative numbers', 'adds zero']
         )
       end
 
       it 'extracts non-empty code for each example' do
-        codes = method_object[:rspec_examples].map {|example| example[:code]}
+        codes = method_object[:rspec_examples].map(&:code)
         expect(codes).to all(match(/\S/))
       end
 
       it 'extracts code that references the method under test' do
         first_example = method_object[:rspec_examples].first
-        expect(first_example[:code]).to include('Calculator.new', 'add(2, 3)')
+        expect(first_example.code).to include('Calculator.new', 'add(2, 3)')
       end
     end
 
@@ -117,7 +117,7 @@ RSpec.describe YardRspec::DescribeHandler do
 
       it 'extracts the descriptions for each nested describe' do
         descriptions = YARD::Registry.at('Shop::Basket#eql?')[:rspec_examples]
-                                     .map {|example| example[:description]}
+                                     .map(&:description)
         expect(descriptions).to eq(
           ['returns true for equal objects', 'returns false for different objects']
         )
@@ -201,7 +201,7 @@ RSpec.describe YardRspec::DescribeHandler do
 
       it 'attaches the examples to the method of the nested class' do
         expect(YARD::Registry.at('Api::Api.call')[:rspec_examples])
-          .to eq([{ description: 'calls', code: '' }])
+          .to match([an_example('calls')])
       end
 
       it 'records no describe problem' do
@@ -222,7 +222,7 @@ RSpec.describe YardRspec::DescribeHandler do
         RUBY
 
         expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
-          .to eq([{ description: 'spins', code: '' }])
+          .to match([an_example('spins')])
       end
     end
 
@@ -255,7 +255,7 @@ RSpec.describe YardRspec::DescribeHandler do
         RUBY
 
         expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
-          .to eq([{ description: 'spins', code: '' }])
+          .to match([an_example('spins')])
       end
     end
 
@@ -302,7 +302,7 @@ RSpec.describe YardRspec::DescribeHandler do
         parse(source)
 
         expect(method_object[:rspec_examples])
-          .to eq([{ description: 'greets', code: 'Person.new.greet' }])
+          .to match([an_example('greets', 'Person.new.greet')])
       end
 
       it 'records no describe problem' do
@@ -334,7 +334,7 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'attaches the examples to the method of the module' do
-        expect(method_object[:rspec_examples]).to eq([{ description: 'builds', code: 'Car.build' }])
+        expect(method_object[:rspec_examples]).to match([an_example('builds', 'Car.build')])
       end
     end
 
@@ -369,7 +369,7 @@ RSpec.describe YardRspec::DescribeHandler do
         YARD.parse([File.join(dir, 'widget_spec.rb'), File.join(dir, 'widget.rb')])
 
         expect(method_object[:rspec_examples])
-          .to eq([{ description: 'spins', code: 'Widget.new.spin' }])
+          .to match([an_example('spins', 'Widget.new.spin')])
       end
 
       it 'records no describe problem for the class or the method' do
@@ -472,7 +472,7 @@ RSpec.describe YardRspec::DescribeHandler do
 
       it 'still attaches the examples' do
         expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
-          .to eq([{ description: 'spins', code: 'expect(Widget.new.spin).to be_nil' }])
+          .to match([an_example('spins', 'expect(Widget.new.spin).to be_nil')])
       end
     end
 
@@ -644,7 +644,7 @@ RSpec.describe YardRspec::DescribeHandler do
         RUBY
 
         expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
-          .to eq([{ description: 'spins', code: '' }])
+          .to match([an_example('spins')])
       end
     end
 

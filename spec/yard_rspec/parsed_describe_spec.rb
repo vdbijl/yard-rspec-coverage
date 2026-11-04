@@ -27,18 +27,19 @@ RSpec.describe YardRspec::ParsedDescribe do
 
   describe '#attach' do
     it 'attaches the examples to the described method' do
-      parsed_describe('Widget', entry('#spin', [{ description: 'spins', code: '' }])).attach
+      spins = YardRspec::Example.new(description: 'spins', code: '')
+      parsed_describe('Widget', entry('#spin', [spins])).attach
 
-      expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
-        .to eq([{ description: 'spins', code: '' }])
+      expect(YARD::Registry.at('Widget#spin')[:rspec_examples]).to eq([spins])
     end
 
     it 'adds to the examples of an earlier describe of the same method' do
-      parsed_describe('Widget', entry('#spin', [{ description: 'spins', code: '' }])).attach
-      parsed_describe('Widget', entry('#spin', [{ description: 'stops', code: '' }])).attach
+      spins = YardRspec::Example.new(description: 'spins', code: '')
+      stops = YardRspec::Example.new(description: 'stops', code: '')
+      parsed_describe('Widget', entry('#spin', [spins])).attach
+      parsed_describe('Widget', entry('#spin', [stops])).attach
 
-      expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
-        .to eq([{ description: 'spins', code: '' }, { description: 'stops', code: '' }])
+      expect(YARD::Registry.at('Widget#spin')[:rspec_examples]).to eq([spins, stops])
     end
 
     it 'records a describe problem for a class that does not exist' do

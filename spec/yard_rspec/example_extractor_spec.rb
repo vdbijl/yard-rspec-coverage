@@ -4,8 +4,8 @@ RSpec.describe YardRspec::ExampleExtractor do
   before {YARD::Registry.clear}
 
   describe '#initialize' do
-    context 'when block_node is nil' do
-      subject(:extractor) {described_class.new(nil)}
+    context 'when the describe has no block' do
+      subject(:extractor) {described_class.new(described_class::EMPTY_BODY)}
 
       it 'creates an extractor that returns an empty array on extract' do
         expect(extractor.extract).to eq([])
@@ -30,12 +30,12 @@ RSpec.describe YardRspec::ExampleExtractor do
         RUBY
       end
 
-      it 'returns example nodes with description and code keys' do
-        expect(examples).to all(include(:description, :code))
+      it 'returns Example objects' do
+        expect(examples).to all(be_a(YardRspec::Example))
       end
 
       it 'extracts the descriptions in order' do
-        expect(examples.map {|example| example[:description]})
+        expect(examples.map(&:description))
           .to eq(['does the thing', 'does another thing'])
       end
     end
@@ -58,7 +58,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'extracts the examples of all three keywords in order' do
-        expect(examples.map {|example| example[:description]})
+        expect(examples.map(&:description))
           .to eq(['uses it', 'uses specify', 'uses example'])
       end
     end
@@ -82,8 +82,8 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'extracts them in order, marking only the excluded ones as pending' do
-        expect(examples.map {|example| [example[:description], example[:pending]]})
-          .to eq([['is active', nil],
+        expect(examples.map {|example| [example.description, example.pending?]})
+          .to eq([['is active', false],
                   ['is disabled with xit', true],
                   ['is disabled with xspecify', true],
                   ['is disabled with xexample', true]])
@@ -116,7 +116,7 @@ RSpec.describe YardRspec::ExampleExtractor do
             'Already running.'
         RUBY
 
-        expect(examples).to eq([{ description: 'raises on a second run', code: }])
+        expect(examples).to match([an_example('raises on a second run', code)])
       end
     end
 
@@ -138,13 +138,15 @@ RSpec.describe YardRspec::ExampleExtractor do
         RUBY
       end
 
-      it 'returns one context node for the context block' do
-        expect(examples).to match([include(description: 'when conditions are met')])
+      it 'returns one example group for the context block' do
+        expect(examples).to match([an_example_group('when conditions are met',
+                                                    an_example('succeeds'),
+                                                    an_example('returns a value'))])
       end
 
-      it 'nests the examples under the context node' do
-        children = examples.first[:children]
-        expect(children.map {|child| child[:description]}).to eq(['succeeds', 'returns a value'])
+      it 'nests the examples under the example group' do
+        children = examples.first.children
+        expect(children.map(&:description)).to eq(['succeeds', 'returns a value'])
       end
     end
 
@@ -168,13 +170,13 @@ RSpec.describe YardRspec::ExampleExtractor do
         RUBY
       end
 
-      it 'returns one node per context block' do
-        expect(examples.map {|node| node[:description]})
+      it 'returns one example group per context block' do
+        expect(examples.map(&:description))
           .to eq(['when conditions are met', 'when conditions are not met'])
       end
 
       it 'nests examples inside their own context' do
-        expect(examples.map {|node| node[:children].map {|child| child[:description]}})
+        expect(examples.map {|node| node.children.map(&:description)})
           .to eq([['succeeds'], ['raises an error']])
       end
     end
@@ -199,9 +201,8 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'nests the inner context inside the outer context' do
-        inner = include(description: 'and input is valid',
-                        children: [include(description: 'returns true')])
-        outer = include(description: 'when conditions are met', children: [inner])
+        inner = an_example_group('and input is valid', an_example('returns true'))
+        outer = an_example_group('when conditions are met', inner)
 
         expect(examples).to match([outer])
       end
@@ -225,10 +226,9 @@ RSpec.describe YardRspec::ExampleExtractor do
         RUBY
       end
 
-      it 'returns a direct example node followed by a context node' do
-        direct = include(description: 'basic behavior', code: '')
-        group = include(description: 'in special state',
-                        children: [include(description: 'behaves differently')])
+      it 'returns a direct example followed by an example group' do
+        direct = an_example('basic behavior')
+        group = an_example_group('in special state', an_example('behaves differently'))
 
         expect(examples).to match([direct, group])
       end
@@ -250,7 +250,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'returns it as a pending example without code' do
-        expect(examples).to eq([{ description: 'runs twice', code: '', pending: true }])
+        expect(examples).to match([an_example('runs twice', pending: true)])
       end
     end
 
@@ -271,7 +271,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'leaves the context out' do
-        expect(examples).to eq([{ description: 'runs', code: '' }])
+        expect(examples).to match([an_example('runs')])
       end
     end
 
@@ -295,11 +295,11 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'returns only the examples' do
-        expect(examples).to eq([{ description: 'runs', code: '' }])
+        expect(examples).to match([an_example('runs')])
       end
     end
 
-    # The README section "Not supported" lists these; a change in behaviour should be deliberate.
+    # The README section "Not supported" lists these; a change in behavior should be deliberate.
     context 'with constructs that are not recognized as examples' do
       subject(:examples) {YARD::Registry.at('Subject#run')[:rspec_examples]}
 
@@ -355,7 +355,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'returns their examples without the group' do
-        expect(examples.map {|example| example[:description]})
+        expect(examples.map(&:description))
           .to eq(['in xdescribe', 'in fcontext', 'in example_group'])
       end
     end
@@ -378,7 +378,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'returns the examples without a group for shared_examples' do
-        expect(examples).to eq([{ description: 'runs', code: '' }])
+        expect(examples).to match([an_example('runs')])
       end
     end
 
@@ -401,7 +401,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'removes the common indentation of the other lines' do
-        expect(examples.first[:code]).to eq("subject.run\n\nsubject.run")
+        expect(examples.first.code).to eq("subject.run\n\nsubject.run")
       end
     end
 
@@ -421,7 +421,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'leaves the context out' do
-        expect(examples).to eq([{ description: 'runs', code: '' }])
+        expect(examples).to match([an_example('runs')])
       end
     end
 
@@ -441,7 +441,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'returns the descriptions as written, with the interpolation' do
-        expect(examples.map {|example| example[:description]})
+        expect(examples.map(&:description))
           .to eq(["runs \#{count} times", "\#{count} runs"])
       end
     end
@@ -463,7 +463,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'returns the parts joined, as RSpec does' do
-        expect(examples.map {|example| example[:description]})
+        expect(examples.map(&:description))
           .to eq(["runs once and then \#{count} times"])
       end
     end
@@ -485,7 +485,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'returns example as the description, also for a string inside another argument' do
-        expect(examples.map {|example| example[:description]}).to eq(%w[example example example])
+        expect(examples.map(&:description)).to eq(%w[example example example])
       end
     end
 
@@ -498,7 +498,7 @@ RSpec.describe YardRspec::ExampleExtractor do
       end
 
       it 'returns the code of the example' do
-        expect(examples).to eq([{ description: 'runs', code: 'run' }])
+        expect(examples).to match([an_example('runs', 'run')])
       end
     end
   end

@@ -1,5 +1,5 @@
 # Equivalent mutants for mutaruby (https://github.com/Atlas-Authorization/mutaruby): mutations
-# that cannot be killed because they do not change behaviour. Run:
+# that cannot be killed because they do not change behavior. Run:
 #   mutaruby --test "bundle exec rspec" --coverage 'lib/**/*.rb'
 - file: lib/yard-rspec-coverage.rb
   operator: statement-delete
@@ -13,11 +13,17 @@
   method: YardRspec::AstHelpers#ast_node?
   mutation: node.is_a?(YARD::Parser::Ruby::AstNode) => node
   reason: Only AST nodes, nil and false are passed, so truthiness gives the same answer.
+- file: lib/yard_rspec/ast_helpers.rb
+  operator: literal-symbol
+  line: 'EMPTY_BODY = YARD::Parser::Ruby::AstNode.new(:list, []) #: YARD::Parser::Ruby::AstNode'
+  mutation: ":list => :__mutaruby__"
+  reason: The type of the empty body is never inspected. It has no children, and is only
+    compared with :command, :string_literal and :string_concat.
 - file: lib/yard_rspec/config.rb
   operator: call-to-receiver
-  line: DEFAULT_FILES = ['{lib,spec}/**/*.rb'].freeze
+  line: 'DEFAULT_FILES = [''{lib,spec}/**/*.rb''].freeze #: Array[String]'
   mutation: "['{lib,spec}/**/*.rb'].freeze => ['{lib,spec}/**/*.rb']"
-  reason: Freezing a constant does not change behaviour.
+  reason: Freezing a constant does not change behavior.
 - file: lib/yard_rspec/coverage.rb
   operator: call-to-receiver
   line: "!spec_file?(method.file.to_s) &&"
@@ -27,12 +33,12 @@
     create.'
 - file: lib/yard_rspec/describe_problems.rb
   operator: literal-symbol
-  line: REGISTRY_KEY = :rspec_describe_problems
+  line: 'REGISTRY_KEY = :rspec_describe_problems #: Symbol'
   mutation: ":rspec_describe_problems => :__mutaruby__"
   reason: Any key name works, as long as add and all use the same one.
 - file: lib/yard_rspec/example_extractor.rb
   operator: call-to-receiver
-  line: node.children.find {|child| child.type == :string_content}.children.map(&:source).join
+  line: 'content = node.children.find {|child| child.type == :string_content} #: YARD::Parser::Ruby::AstNode'
   method: YardRspec::ExampleExtractor#string_text
   mutation: node.children => node
   reason: The first element of these YARD nodes is also their first child node.
@@ -94,25 +100,22 @@
     statement is on the line of `do`.
 - file: lib/yard_rspec/example_extractor.rb
   operator: logical-drop-right
-  line: min_indent = lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min ||
-    0
+  line: 'min_indent = lines.reject(&:empty?).map {|line| line.length - line.lstrip.length}.min || 0'
   method: YardRspec::ExampleExtractor#dedent
-  mutation: lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min || 0 => lines.reject(&:empty?).map
-    {|line| line[/^\s*/].length}.min
+  mutation: lines.reject(&:empty?).map {|line| line.length - line.lstrip.length}.min || 0 => lines.reject(&:empty?).map
+    {|line| line.length - line.lstrip.length}.min
   reason: Only differs when every line is empty, and an empty line stays empty whatever
     the indent.
 - file: lib/yard_rspec/example_extractor.rb
   operator: literal-int
-  line: min_indent = lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min ||
-    0
+  line: 'min_indent = lines.reject(&:empty?).map {|line| line.length - line.lstrip.length}.min || 0'
   method: YardRspec::ExampleExtractor#dedent
   mutation: 0 => 1
   reason: Only differs when every line is empty, and an empty line stays empty whatever
     the indent.
 - file: lib/yard_rspec/example_extractor.rb
   operator: literal-int
-  line: min_indent = lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min ||
-    0
+  line: 'min_indent = lines.reject(&:empty?).map {|line| line.length - line.lstrip.length}.min || 0'
   method: YardRspec::ExampleExtractor#dedent
   mutation: 0 => -1
   reason: Only differs when every line is empty, and an empty line stays empty whatever
@@ -148,17 +151,11 @@
   line: 'nil # Returning false would cancel the parse.'
   mutation: nil => true
   reason: Only false cancels the parse; any other value continues.
-- file: lib/yard_rspec/nested_method_describes.rb
-  operator: argument-removal
-  line: return enum_for(:each) if !block_given?
-  method: YardRspec::NestedMethodDescribes#each
-  mutation: ":each =>"
-  reason: enum_for enumerates each by default.
 - file: lib/yard_rspec/spec_objects.rb
   operator: statement-delete
   line: private_class_method :delete
   mutation: private_class_method :delete => nil
-  reason: Visibility only; no behaviour change.
+  reason: Visibility only; no behavior change.
 - file: lib/yard_rspec/spec_objects.rb
   operator: call-to-receiver
   line: YARD::Registry.all.each do |object|
@@ -169,7 +166,7 @@
   operator: statement-delete
   line: private_class_method :uncovered_methods
   mutation: private_class_method :uncovered_methods => nil
-  reason: Visibility only; no behaviour change.
+  reason: Visibility only; no behavior change.
 - file: lib/yard_rspec/example_extractor.rb
   operator: call-to-receiver
   line: node.children.map {|child| string_text(child)}.join
@@ -179,19 +176,19 @@
     is the same.
 - file: templates/default/method_details/html/setup.rb
   operator: argument-removal
-  line: '"<pre class=\"example code\">#{html_syntax_highlight(example[:code], :ruby)}</pre>"\'
+  line: '"<pre class=\"example code\">#{html_syntax_highlight(example.code, :ruby)}</pre>"\'
   method: rspec_example_html
-  mutation: example[:code], :ruby => example[:code]
+  mutation: example.code, :ruby => example.code
   reason: Without a type, YARD highlights the source type of the method, which is
     Ruby too; the explicit :ruby states that example code is always Ruby.
 - file: lib/yard_rspec/example_extractor.rb
   operator: call-to-receiver
-  line: PENDING_KEYWORDS = %i[xit xspecify xexample].freeze
-  reason: Freezing a constant does not change behaviour.
+  line: 'PENDING_KEYWORDS = %i[xit xspecify xexample].freeze #: Array[Symbol]'
+  reason: Freezing a constant does not change behavior.
 - file: lib/yard_rspec/example_extractor.rb
   operator: call-to-receiver
-  line: KEYWORDS = (%i[it specify example] + PENDING_KEYWORDS).freeze
-  reason: Freezing a constant does not change behaviour.
+  line: 'KEYWORDS = (%i[it specify example] + PENDING_KEYWORDS).freeze #: Array[Symbol]'
+  reason: Freezing a constant does not change behavior.
 - file: lib/yard_rspec/spec_objects.rb
   operator: statement-delete
   line: next if own_files == object.files

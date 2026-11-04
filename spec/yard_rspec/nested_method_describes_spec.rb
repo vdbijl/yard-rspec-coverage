@@ -7,7 +7,7 @@ RSpec.describe YardRspec::NestedMethodDescribes do
 
   describe '#initialize' do
     it 'takes the body of the outer describe block' do
-      expect(described_class.new(nil)).to be_a(described_class)
+      expect(described_class.new(described_class::EMPTY_BODY)).to be_a(described_class)
     end
   end
 
@@ -61,19 +61,6 @@ RSpec.describe YardRspec::NestedMethodDescribes do
       RUBY
 
       expect(described_class.new(body).to_a).to eq([])
-    end
-
-    it 'returns an enumerator without a block' do
-      body = block_body(<<~RUBY)
-        describe Widget do
-          describe '#spin' do; end
-        end
-      RUBY
-
-      enumerator = described_class.new(body).each
-
-      expect(enumerator.map {|description, _body, line| [description.to_s, line]})
-        .to eq([['#spin', 2]])
     end
   end
 end

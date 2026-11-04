@@ -4,7 +4,8 @@ module YardRspec
   # The output and options of the `yard:rspec_coverage` task. Not loaded into the global namespace
   # by the rake file, since that would add the methods to every Rakefile that uses the plugin.
   module TaskReports
-    # @param [<YARD::CodeObjects::MethodObject>] uncovered
+    # @rbs uncovered: Array[YARD::CodeObjects::MethodObject]
+    # @rbs return: void
     def self.uncovered_methods(uncovered)
       return if uncovered.empty?
 
@@ -15,9 +16,9 @@ module YardRspec
     end
     private_class_method :uncovered_methods
 
-    # @param [<YARD::CodeObjects::MethodObject>] public_lib_methods
-    # @return [Float] The unrounded coverage percentage: rounding could pass a minimum of 100. It
-    #   is printed rounded down, so below 100 never shows as 100.00%.
+    # @rbs public_lib_methods: Array[YARD::CodeObjects::MethodObject]
+    # @rbs return: Float -- The unrounded coverage percentage: rounding could pass a minimum of
+    #   100. It is printed rounded down, so below 100 never shows as 100.00%.
     def self.rspec_coverage(public_lib_methods)
       total     = public_lib_methods.size
       uncovered = public_lib_methods.reject {|method| YardRspec::Coverage.covered?(method)}
@@ -31,9 +32,10 @@ module YardRspec
       coverage
     end
 
-    # @param [<String>] files Glob patterns; they replace the files in .yardopts, which YARD would
-    #   otherwise add them to.
-    # @return [YARD::CLI::Yardoc] With the options of .yardopts (so --exclude works) and no output.
+    # @rbs files: Array[String] -- Glob patterns; they replace the files in .yardopts, which YARD
+    #   would otherwise add them to.
+    # @rbs return: YARD::CLI::Yardoc -- With the options of .yardopts (so --exclude works) and no
+    #   output.
     def self.yardoc_with_yardopts(files)
       yardoc = YARD::CLI::Yardoc.new
       yardoc.parse_arguments('--no-output')
@@ -41,7 +43,8 @@ module YardRspec
       yardoc
     end
 
-    # @param [<String>] describe_problems Reported only; they do not fail the check.
+    # @rbs describe_problems: Array[String] -- Reported only; they do not fail the check.
+    # @rbs return: void
     def self.describe_problems(describe_problems)
       return if describe_problems.empty?
 

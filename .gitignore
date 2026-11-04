@@ -6,6 +6,8 @@
 .yardoc/
 /.bundle/
 /vendor/bundle
+# A gem is tested against the newest versions its gemspec allows, so no lock file.
+/Gemfile.lock
 
 # Local tools and notes, not part of the gem
 /CLAUDE.md

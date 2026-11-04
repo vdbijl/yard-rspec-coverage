@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+Changed:
+
+- `method[:rspec_examples]` holds `YardRspec::Example` and `YardRspec::ExampleGroup` objects
+  instead of hashes. Both answer `examples`, the examples at any depth. YARD saves them with
+  Marshal, so a `.yardoc` that holds them loads only when the plugin is loaded. A `.yardoc`
+  written by 0.2.0 holds hashes: regenerate it.
+- `YardRspec::Config.minimum_rspec_coverage=` and `files=` accept only a `Float` and an
+  `Array` of `String`. Assigning `nil` no longer restores the default; assign
+  `Config::DEFAULT_MINIMUM_RSPEC_COVERAGE` or `Config::DEFAULT_FILES`.
+- The description of a context whose description is not a string literal is `''` instead of nil.
+- `ExampleExtractor.new` and `NestedMethodDescribes.new` take a syntax tree, no longer nil: use
+  `AstHelpers::EMPTY_BODY` for a describe without a block. `NestedMethodDescribes#each` needs a
+  block and yields one array of the description, the block body and the line.
+  `ParsedDescribe::Entry` is a plain class instead of a Struct.
+- `DescribeProblems.add` returns nil, no longer the list of problems that the registry keeps.
+
+Development:
+
+- The code has inline RBS type annotations, checked by Steep with strict diagnostics (`rake steep`,
+  part of `rake`). The types are documented by `yard-inline-rbs`, enabled in `.yardopts`. The
+  `sig/` directory holds the types of YARD, and is not part of the gem.
+- `Gemfile.lock` is no longer committed: a gem is tested against the newest versions that its
+  gemspec allows.
+
 ## 0.2.0
 
 Changed (these can change the coverage result of a project):
@@ -11,7 +37,7 @@ Changed (these can change the coverage result of a project):
 - Files ending in `_helper.rb` outside a spec directory, such as Rails view helpers, count for
   RSpec coverage again. Spec files are the files in a `spec/` directory and files ending in
   `_spec.rb`.
-- An example without a block (`it 'spins twice'`) is pending, as in RSpec: it is labelled
+- An example without a block (`it 'spins twice'`) is pending, as in RSpec: it is labeled
   "pending" and does not count as coverage.
 - A description that is not a string literal, such as `it format('runs %s', 1)`, is shown as
   `example`. A description with interpolation is shown as written.

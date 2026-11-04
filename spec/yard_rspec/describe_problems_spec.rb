@@ -39,6 +39,10 @@ RSpec.describe YardRspec::DescribeProblems do
 
       expect(described_class.all).to eq(["spec/car_spec.rb:3: could not resolve class 'Car'"])
     end
+
+    it 'returns nil, not the list of problems that the registry keeps' do
+      expect(described_class.add("spec/car_spec.rb:3: could not resolve class 'Car'")).to be_nil
+    end
   end
 
   describe '.recording_failure' do

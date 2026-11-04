@@ -4,12 +4,16 @@ require 'open3'
 require 'bundler/audit/task'
 require 'rspec/core/rake_task'
 require_relative 'lib/yard_rspec/rake_tasks'
+require 'yard-inline-rbs' # YARD ignores --plugin in the in-process yard:doc.
 YardRspec::Config.minimum_rspec_coverage = 100.0
 YardRspec::Config.files = ['{lib,spec}/**/*.rb'] # .yardopts excludes spec/fixtures
 
 RSpec::Core::RakeTask.new('rspec') do |task|
   task.verbose = false # Hides the long ruby command line.
 end
+
+require 'steep/rake_task'
+Steep::RakeTask.new # steep checks the inline RBS annotations, see Steepfile
 
 # check Gemfile.lock against the advisory database
 Bundler::Audit::Task.new
@@ -40,7 +44,7 @@ namespace :yard do
   end
 end
 
-desc 'Run all checks: RuboCop, dependency audit, RSpec with coverage, and YARD coverage'
-task default: %i[rubocop bundle:audit spec:coverage yard:coverage yard:rspec_coverage]
+desc 'Run all checks: RuboCop, Steep, dependency audit, RSpec with coverage, and YARD coverage'
+task default: %i[rubocop steep bundle:audit spec:coverage yard:coverage yard:rspec_coverage]
 
 load File.expand_path('script/prerelease.rake', __dir__) # Not part of the gem.

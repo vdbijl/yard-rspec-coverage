@@ -10,7 +10,10 @@ RSpec.describe YardRspec::Config do
 
     context 'when configured' do
       before {described_class.minimum_rspec_coverage = 80.0}
-      after  {described_class.minimum_rspec_coverage = nil}
+
+      after do
+        described_class.minimum_rspec_coverage = described_class::DEFAULT_MINIMUM_RSPEC_COVERAGE
+      end
 
       it 'returns the configured value' do
         expect(described_class.minimum_rspec_coverage).to eq(80.0)
@@ -19,7 +22,7 @@ RSpec.describe YardRspec::Config do
   end
 
   describe '.minimum_rspec_coverage=' do
-    after {described_class.minimum_rspec_coverage = nil}
+    after {described_class.minimum_rspec_coverage = described_class::DEFAULT_MINIMUM_RSPEC_COVERAGE}
 
     it 'sets the minimum coverage percentage' do
       described_class.minimum_rspec_coverage = 75.0
@@ -36,7 +39,7 @@ RSpec.describe YardRspec::Config do
 
     context 'when configured' do
       before {described_class.files = ['lib/**/*.rb']}
-      after  {described_class.files = nil}
+      after  {described_class.files = described_class::DEFAULT_FILES}
 
       it 'returns the configured file patterns' do
         expect(described_class.files).to eq(['lib/**/*.rb'])
@@ -45,7 +48,7 @@ RSpec.describe YardRspec::Config do
   end
 
   describe '.files=' do
-    after {described_class.files = nil}
+    after {described_class.files = described_class::DEFAULT_FILES}
 
     it 'sets the file glob patterns' do
       described_class.files = ['app/**/*.rb']

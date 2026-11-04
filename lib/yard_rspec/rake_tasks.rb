@@ -6,4 +6,4 @@
 #   YardRspec::Config.minimum_rspec_coverage = 80.0
 require 'rake'
 
-load File.expand_path('../tasks/yard_rspec.rake', __dir__)
+load File.expand_path('../tasks/yard_rspec.rake', __dir__) # steep:ignore ArgumentTypeMismatch

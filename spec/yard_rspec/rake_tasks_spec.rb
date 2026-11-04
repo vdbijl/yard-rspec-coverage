@@ -65,7 +65,7 @@ RSpec.describe 'yard_rspec/rake_tasks', type: :task do
 
       after do
         FileUtils.remove_entry(dir)
-        YardRspec::Config.files = nil
+        YardRspec::Config.files = YardRspec::Config::DEFAULT_FILES
       end
 
       before do
@@ -100,8 +100,8 @@ RSpec.describe 'yard_rspec/rake_tasks', type: :task do
 
       after do
         FileUtils.remove_entry(dir)
-        YardRspec::Config.files = nil
-        YardRspec::Config.minimum_rspec_coverage = nil
+        YardRspec::Config.files = YardRspec::Config::DEFAULT_FILES
+        YardRspec::Config.minimum_rspec_coverage = YardRspec::Config::DEFAULT_MINIMUM_RSPEC_COVERAGE
       end
 
       before do
@@ -134,7 +134,7 @@ RSpec.describe 'yard_rspec/rake_tasks', type: :task do
 
       after do
         FileUtils.remove_entry(dir)
-        YardRspec::Config.files = nil
+        YardRspec::Config.files = YardRspec::Config::DEFAULT_FILES
       end
 
       before do
@@ -175,7 +175,7 @@ RSpec.describe 'yard_rspec/rake_tasks', type: :task do
         allow(YARD).to receive(:parse)
       end
 
-      after {YardRspec::Config.minimum_rspec_coverage = nil}
+      after {YardRspec::Config.minimum_rspec_coverage = YardRspec::Config::DEFAULT_MINIMUM_RSPEC_COVERAGE}
 
       it 'still fails the default minimum of 100%' do
         expect {Rake.application['yard:rspec_coverage'].invoke}
@@ -193,8 +193,8 @@ RSpec.describe 'yard_rspec/rake_tasks', type: :task do
         Dir.chdir(dir) {example.run}
       ensure
         FileUtils.remove_entry(dir)
-        YardRspec::Config.files = nil
-        YardRspec::Config.minimum_rspec_coverage = nil
+        YardRspec::Config.files = YardRspec::Config::DEFAULT_FILES
+        YardRspec::Config.minimum_rspec_coverage = YardRspec::Config::DEFAULT_MINIMUM_RSPEC_COVERAGE
       end
 
       before do

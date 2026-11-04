@@ -5,21 +5,41 @@ module YardRspec
   # described method, its examples. It keeps no syntax tree, so a describe that waits for the end
   # of a file list parse does not keep its spec file's tree alive (about 0.25 MB per spec file).
   class ParsedDescribe
-    # One described method, with its examples.
-    # @attr [MethodDescription, nil] description Nil if the describe string names no method, as in
-    #   `describe '#'`.
-    # @attr [<Hash>] examples See ExampleExtractor#extract.
-    # @attr [String] location 'file:line' of the describe of the method.
-    Entry = Struct.new(:description, :examples, :location)
+    # @rbs @namespace: YARD::CodeObjects::NamespaceObject
+    # @rbs @class_name: String
+    # @rbs @entries: Array[Entry]
 
-    # @return [String] 'file:line' of the describe.
-    attr_reader :location
+    # One described method, with its examples. A plain class: inline RBS cannot type a Struct.
+    class Entry
+      # Nil if the describe string names no method, as in `describe '#'`.
+      attr_reader :description #: MethodDescription?
 
-    # @param [YARD::CodeObjects::NamespaceObject] namespace Where the describe is; the class name
+      # See ExampleExtractor#extract.
+      attr_reader :examples #: Array[example_node]
+
+      # 'file:line' of the describe of the method.
+      attr_reader :location #: String
+
+      # @rbs description: MethodDescription?
+      # @rbs examples: Array[example_node]
+      # @rbs location: String
+      # @rbs return: void
+      def initialize(description, examples, location)
+        @description = description
+        @examples = examples
+        @location = location
+      end
+    end
+
+    # 'file:line' of the describe.
+    attr_reader :location #: String
+
+    # @rbs namespace: YARD::CodeObjects::NamespaceObject -- Where the describe is; the class name
     #   is resolved from there.
-    # @param [String] class_name As written, such as 'Widget' or 'Shop::Widget'.
-    # @param [String] location 'file:line' of the describe.
-    # @param [<Entry>] entries
+    # @rbs class_name: String -- As written, such as 'Widget' or 'Shop::Widget'.
+    # @rbs location: String -- 'file:line' of the describe.
+    # @rbs entries: Array[Entry]
+    # @rbs return: void
     def initialize(namespace:, class_name:, location:, entries:)
       @namespace = namespace
       @class_name = class_name
@@ -29,6 +49,7 @@ module YardRspec
 
     # Attaches the examples to the described methods, or records describe problems. Call it once
     # the described classes are in the registry.
+    # @rbs return: void
     def attach
       target = resolve_namespace or return
       @entries.each {|entry| attach_entry(target, entry)}
@@ -36,7 +57,7 @@ module YardRspec
 
     private
 
-    # @return [YARD::CodeObjects::NamespaceObject, nil] Nil for an unknown class, recorded as a
+    # @rbs return: YARD::CodeObjects::NamespaceObject? -- Nil for an unknown class, recorded as a
     #   problem unless it is loaded at runtime (a class of another gem is no typo), and for a
     #   constant such as `Widget = Class.new`, whose methods YARD does not know.
     def resolve_namespace
@@ -47,7 +68,7 @@ module YardRspec
       resolved if resolved.is_a?(YARD::CodeObjects::NamespaceObject)
     end
 
-    # @return [Boolean]
+    # @rbs return: bool
     def loaded_constant?
       Object.const_defined?(@class_name)
     rescue NameError
@@ -55,6 +76,9 @@ module YardRspec
     end
 
     # A missing method is a describe problem, unless the description is imprecise.
+    # @rbs target: YARD::CodeObjects::NamespaceObject
+    # @rbs entry: Entry
+    # @rbs return: void
     def attach_entry(target, entry)
       description = entry.description
       if description.nil?

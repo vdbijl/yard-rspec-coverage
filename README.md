@@ -110,7 +110,7 @@ The plugin consists of four main components:
 4. **Assets** (`templates/default/fulldoc/html/`): A stylesheet and a script for the "expand all" link
 
 Each example shows its description and its syntax-highlighted code. Pending
-examples are labelled "pending", and a public method without specs gets a red "no specs" label.
+examples are labeled "pending", and a public method without specs gets a red "no specs" label.
 
 ## RSpec Format Support
 
@@ -124,14 +124,14 @@ The plugin supports the following RSpec syntax:
   lines as adjacent strings (`'spins ' \ 'twice'`)
 - `specify "description"` and `example "description"` blocks (aliases for `it`)
 - `xit`, `xspecify` and `xexample` blocks (excluded examples) and examples without a block
-  (`it 'spins twice'`, which RSpec reports as "Not yet implemented"), labelled "pending". They do
+  (`it 'spins twice'`, which RSpec reports as "Not yet implemented"), labeled "pending". They do
   not count as coverage: a method with only pending examples is reported as without specs.
 - nested `context "..."` and `describe "..."` blocks, shown as groups of examples
 
 ### Not supported
 
 These RSpec constructs are not recognized. Examples written with them do not appear in the
-documentation and do not count towards RSpec coverage.
+documentation and do not count toward RSpec coverage.
 
 - Examples that are not written as a command without parentheses followed by a block: `it('x') {}`
   the one-liner `it {is_expected.to be_ok}` and `it do ... end` without a description.

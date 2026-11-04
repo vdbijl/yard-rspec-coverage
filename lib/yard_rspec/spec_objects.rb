@@ -7,6 +7,7 @@ module YardRspec
   module SpecObjects
     # Removes objects defined only in spec files, and the spec files from the files of the others,
     # such as a class that a spec reopens.
+    # @rbs return: void
     def self.remove
       YARD::Registry.all.each do |object|
         own_files = object.files.reject {|file, _line| Coverage.spec_file?(file)}
@@ -17,7 +18,8 @@ module YardRspec
     end
 
     # A namespace from another gem (`class Rack::Static::Middleware`) is a proxy without children.
-    # @param [YARD::CodeObjects::Base] object
+    # @rbs object: YARD::CodeObjects::Base
+    # @rbs return: void
     def self.delete(object)
       namespace = object.namespace
       namespace.children.delete(object) if !namespace.is_a?(YARD::CodeObjects::Proxy)

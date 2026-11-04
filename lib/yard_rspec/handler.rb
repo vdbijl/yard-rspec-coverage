@@ -12,12 +12,12 @@ module YardRspec
     handles method_call(:context)
     namespace_only
 
-    # @return [Regexp] A class name such as 'Widget' or 'Shop::Widget', not a topic such as
-    #   'Spinning semantics'.
-    CLASS_NAME = /\A[A-Z][A-Za-z0-9_:]*\z/
+    # A class name such as 'Widget' or 'Shop::Widget', not a topic such as 'Spinning semantics'.
+    CLASS_NAME = /\A[A-Z][A-Za-z0-9_:]*\z/ #: Regexp
 
     # Deferred while parsing a file list, see the callbacks at the end of this file. There a
     # failure is recorded as a describe problem, so it does not abort the parse.
+    # @rbs return: void
     def process
       deferred = globals.yard_rspec_deferred_describes
       return parse_describe&.attach if deferred.nil?
@@ -31,7 +31,7 @@ module YardRspec
     private
 
     # Method-only describes (describe '#eql?') are handled by their outer describe.
-    # @return [ParsedDescribe, nil] Nil for a describe without a class name.
+    # @rbs return: ParsedDescribe? -- Nil for a describe without a class name.
     def parse_describe
       class_name = described_name
       return nil if class_name.nil? || !class_name.match?(CLASS_NAME)
@@ -46,13 +46,13 @@ module YardRspec
                          entries: entries)
     end
 
-    # @return [String, nil] The first describe parameter; nil for `describe do`.
+    # @rbs return: String? -- The first describe parameter; nil for `describe do`.
     def described_name
       first_parameter = statement.parameters.first
       Unquote.call(first_parameter.source) if ast_node?(first_parameter)
     end
 
-    # @return [MethodDescription, nil] From the second describe parameter.
+    # @rbs return: MethodDescription? -- From the second describe parameter.
     def extract_method_description
       second_param = statement.parameters[1]
       return nil if !ast_node?(second_param)
@@ -60,25 +60,25 @@ module YardRspec
       MethodDescription.parse(Unquote.call(second_param.source))
     end
 
-    # @return [<ParsedDescribe::Entry>] The nested '#method' describes.
+    # @rbs return: Array[ParsedDescribe::Entry] -- The nested '#method' describes.
     def nested_entries
-      block_body = block_body_of(statement)
-      return [] if block_body.nil?
-
-      NestedMethodDescribes.new(block_body).map do |description, nested_block_body, line|
+      nested_describes = NestedMethodDescribes.new(block_body_of(statement))
+      nested_describes.map do |description, nested_block_body, line|
         entry(description, nested_block_body, line)
       end
     end
 
-    # @param [MethodDescription, nil] description
-    # @param [YARD::Parser::Ruby::AstNode, nil] block_body
-    # @return [ParsedDescribe::Entry]
+    # @rbs description: MethodDescription?
+    # @rbs block_body: YARD::Parser::Ruby::AstNode
+    # @rbs line: Integer
+    # @rbs return: ParsedDescribe::Entry
     def entry(description, block_body, line)
       ParsedDescribe::Entry.new(description, ExampleExtractor.new(block_body).extract,
                                 location_of(line))
     end
 
-    # @return [String] 'file:line', by default the line of the statement.
+    # @rbs line: Integer
+    # @rbs return: String -- 'file:line', by default the line of the statement.
     def location_of(line = statement.line)
       "#{statement.file}:#{line}"
     end
@@ -92,7 +92,9 @@ end
 
 # Spec objects are removed only after the examples have been attached.
 YARD::Parser::SourceParser.after_parse_list do |_files, global_state|
-  global_state.yard_rspec_deferred_describes.each do |parsed_describe|
+  # Set by the before_parse_list callback above.
+  deferred = global_state.yard_rspec_deferred_describes #: Array[YardRspec::ParsedDescribe]
+  deferred.each do |parsed_describe|
     YardRspec::DescribeProblems.recording_failure(parsed_describe.location) {parsed_describe.attach}
   end
   YardRspec::SpecObjects.remove

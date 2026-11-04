@@ -50,12 +50,25 @@ module YardRspecCompare
 
   # The examples the plugin attaches when it parses the project's lib/, app/ and spec/ files.
   module PluginExamples
-    # Adds where each example's `it` is, to match it with RSpec's examples.
+    # An example that knows where its `it` is, to match it with RSpec's examples.
+    class LocatedExample < YardRspec::Example
+      attr_reader :file
+
+      attr_reader :line
+
+      def initialize(example, file, line)
+        super(description: example.description, code: example.code, pending: example.pending?)
+        @file = file
+        @line = line
+      end
+    end
+
+    # Makes the extractor build LocatedExamples.
     module Location
       private
 
       def build_example(node)
-        super.merge(file: File.expand_path(node.file), line: node.line)
+        LocatedExample.new(super, File.expand_path(node.file), node.line)
       end
     end
 
@@ -79,8 +92,10 @@ module YardRspecCompare
 
     def self.attached_examples
       YARD::Registry.all(:method).flat_map do |method|
-        YardRspec::Coverage.examples(method[:rspec_examples] || [])
-                           .map {|example| example.merge(method: method.path)}
+        YardRspec::Coverage.examples(method[:rspec_examples] || []).map do |example|
+          { description: example.description, pending: example.pending?, method: method.path,
+            file: example.file, line: example.line }
+        end
       end
     end
     private_class_method :attached_examples
@@ -144,7 +159,7 @@ module YardRspecCompare
           "#{location(example)}  rspec=#{example[:description].inspect} "\
           "plugin=#{plugin_example[:description].inspect}"
       end
-      plugin_pending = plugin_example.fetch(:pending, false)
+      plugin_pending = plugin_example[:pending]
       return if plugin_pending == example[:pending]
 
       @categories['pending differs'] <<

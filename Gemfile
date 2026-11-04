@@ -16,4 +16,6 @@ group :development do
   gem 'rubocop-rake', '>= 0.7'
   gem 'rubocop-rspec', '>= 3.5'
   gem 'simplecov', '>= 1.0.3' # For SimpleCov.skip
+  gem 'steep', '>= 2.1' # Checks the inline RBS annotations, see Steepfile
+  gem 'yard-inline-rbs', '~> 0.1' # Documents the inline RBS annotations, see .yardopts
 end

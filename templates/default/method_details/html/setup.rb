@@ -11,25 +11,27 @@ def rspec_specs
   erb(:rspec_specs)
 end
 
-# @param [<Hash>] nodes Example and context nodes, see `method[:rspec_examples]`.
+# @param [<YardRspec::Example, YardRspec::ExampleGroup>] nodes See `method[:rspec_examples]`.
 # @return [String] HTML list items.
 def rspec_nodes_html(nodes)
-  nodes.map {|node| node[:children] ? rspec_group_html(node) : rspec_example_html(node)}.join
+  nodes.map do |node|
+    node.is_a?(YardRspec::ExampleGroup) ? rspec_group_html(node) : rspec_example_html(node)
+  end.join
 end
 
-# @param [{description: String, code: String, pending: Boolean}] example
+# @param [YardRspec::Example] example
 # @return [String]
 def rspec_example_html(example)
-  pending = example[:pending] ? ' <span class="rspec_label rspec_pending">pending</span>' : ''
-  "<li><details><summary>#{h(example[:description])}#{pending}</summary>"\
-    "<pre class=\"example code\">#{html_syntax_highlight(example[:code], :ruby)}</pre>"\
+  pending = example.pending? ? ' <span class="rspec_label rspec_pending">pending</span>' : ''
+  "<li><details><summary>#{h(example.description)}#{pending}</summary>"\
+    "<pre class=\"example code\">#{html_syntax_highlight(example.code, :ruby)}</pre>"\
     '</details></li>'
 end
 
-# @param [{description: String, children: [<Hash>]}] group
+# @param [YardRspec::ExampleGroup] group
 # @return [String]
 def rspec_group_html(group)
   '<li class="rspec_context">'\
-    "<span class=\"rspec_context_name\">#{h(group[:description])}</span>"\
-    "<ul class=\"rspec\">#{rspec_nodes_html(group[:children])}</ul></li>"
+    "<span class=\"rspec_context_name\">#{h(group.description)}</span>"\
+    "<ul class=\"rspec\">#{rspec_nodes_html(group.children)}</ul></li>"
 end

@@ -113,14 +113,14 @@ RSpec.describe YardRspec::Coverage do
   end
 
   describe '.examples' do
-    let(:nodes) do
-      [{ description: 'runs', code: '' },
-       { description: 'when empty', children: [{ description: 'is skipped', code: '' }] }]
+    let(:runs) {YardRspec::Example.new(description: 'runs', code: '')}
+    let(:is_skipped) {YardRspec::Example.new(description: 'is skipped', code: '')}
+    let(:when_empty) do
+      YardRspec::ExampleGroup.new(description: 'when empty', children: [is_skipped])
     end
 
-    it 'returns the examples at any depth, without the contexts' do
-      expect(described_class.examples(nodes))
-        .to eq([{ description: 'runs', code: '' }, { description: 'is skipped', code: '' }])
+    it 'returns the examples at any depth, without the example groups' do
+      expect(described_class.examples([runs, when_empty])).to eq([runs, is_skipped])
     end
   end
 

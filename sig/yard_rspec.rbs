@@ -1,0 +1,19 @@
+# What inline RBS cannot declare: the instance variables of a module.
+module YardRspec
+  module Config
+    self.@minimum_rspec_coverage: Float
+    self.@files: Array[String]
+  end
+end
+
+module YardRspec
+  # A node of `method[:rspec_examples]`.
+  type example_node = Example | ExampleGroup
+end
+
+# The attribute that DescribeHandler stores on the globals of a parse (an OpenStruct): the describes
+# that wait until all files are parsed. It is nil when YARD parses a string, which has no file list.
+class OpenStruct
+  def yard_rspec_deferred_describes: () -> Array[YardRspec::ParsedDescribe]?
+  def yard_rspec_deferred_describes=: (Array[YardRspec::ParsedDescribe] describes) -> Array[YardRspec::ParsedDescribe]
+end

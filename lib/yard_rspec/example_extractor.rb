@@ -2,32 +2,36 @@
 
 module YardRspec
   # Extracts the RSpec examples of a describe block as a tree of example and context nodes.
-  # Excluded examples (xit/xspecify/xexample) get `pending: true`.
+  # Excluded examples (xit/xspecify/xexample) are pending.
   class ExampleExtractor
+    # @rbs @block_node: YARD::Parser::Ruby::AstNode
+
     include AstHelpers
 
-    # @return [<Symbol>] The keywords of examples that RSpec excludes from the run.
-    PENDING_KEYWORDS = %i[xit xspecify xexample].freeze
+    # The keywords of examples that RSpec excludes from the run.
+    PENDING_KEYWORDS = %i[xit xspecify xexample].freeze #: Array[Symbol]
 
-    # @return [<Symbol>] The keywords of all examples, including the pending ones.
-    KEYWORDS = (%i[it specify example] + PENDING_KEYWORDS).freeze
+    # The keywords of all examples, including the pending ones.
+    KEYWORDS = (%i[it specify example] + PENDING_KEYWORDS).freeze #: Array[Symbol]
 
-    # @param [YARD::Parser::Ruby::AstNode, nil] block_node The body of a describe block.
+    # @rbs block_node: YARD::Parser::Ruby::AstNode -- The body of a describe block.
+    # @rbs return: void
     def initialize(block_node)
       @block_node = block_node
     end
 
-    # @return [<Hash>] The example and context nodes.
+    # @rbs return: Array[example_node] -- The example and context nodes.
     def extract
-      return [] if @block_node.nil?
-
-      examples = []
+      examples = [] #: Array[example_node]
       traverse(@block_node, examples)
       examples
     end
 
     private
 
+    # @rbs node: YARD::Parser::Ruby::AstNode
+    # @rbs nodes: Array[example_node]
+    # @rbs return: void
     def traverse(node, nodes)
       if example_call?(node)
         nodes << build_example(node)
@@ -38,81 +42,84 @@ module YardRspec
       end
     end
 
-    # A context without a block or without examples is left out.
+    # A context without examples, such as one without a block, is left out.
+    # @rbs node: YARD::Parser::Ruby::AstNode
+    # @rbs nodes: Array[example_node]
+    # @rbs return: void
     def add_context(node, nodes)
-      block_body = block_body_of(node) or return
-      children = []
-      traverse(block_body, children)
+      children = [] #: Array[example_node]
+      traverse(block_body_of(node), children)
       return if children.empty?
 
-      nodes << { description: string_literal_text(node.parameters.first), children: children }
+      nodes << ExampleGroup.new(description: string_text(node.parameters.first), children: children)
     end
 
-    # @return [Boolean] Includes the `x` variants.
+    # @rbs node: YARD::Parser::Ruby::AstNode
+    # @rbs return: bool -- Includes the `x` variants.
     def example_call?(node)
       node.type == :command && KEYWORDS.include?(node.method_name(true))
     end
 
-    # @return [Boolean]
+    # @rbs node: YARD::Parser::Ruby::AstNode
+    # @rbs return: bool
     def context_call?(node)
       node.type == :command && describe_or_context_call?(node)
     end
 
-    # @return [Hash] With `pending: true` only for the `x` variants and examples without a block,
-    #   which RSpec reports as pending.
+    # @rbs node: YARD::Parser::Ruby::AstNode
+    # @rbs return: Example -- Pending for the `x` variants and examples without a block, which
+    #   RSpec reports as pending.
     def build_example(node)
-      example = {
-        description: string_literal_text(node.parameters.first) || 'example',
-        code: extract_code(block_body_of(node))
-      }
-      example[:pending] = true if pending_example?(node)
-      example
+      description = string_text(node.parameters.first)
+      Example.new(description: description.empty? ? 'example' : description,
+                  code: extract_code(block_body_of(node)), pending: pending_example?(node))
     end
 
-    # @return [Boolean]
+    # @rbs node: YARD::Parser::Ruby::AstNode
+    # @rbs return: bool
     def pending_example?(node)
-      PENDING_KEYWORDS.include?(node.method_name(true)) || block_body_of(node).nil?
+      PENDING_KEYWORDS.include?(node.method_name(true)) || node.block.nil?
     end
 
-    # @param [YARD::Parser::Ruby::AstNode] argument The first argument of a call.
-    # @return [String, nil] The text as written, so with interpolations such as `#{count}`; nil if
-    #   empty or not a string literal, such as `format('runs %s', count)`.
-    def string_literal_text(argument)
-      text = string_text(argument)
-      text if text && !text.empty?
-    end
-
-    # @return [String, nil] Nil when the node is not a string literal. Adjacent literals
+    # @rbs node: YARD::Parser::Ruby::AstNode
+    # @rbs return: String -- The text as written, so with interpolations such as `#{count}`; empty
+    #   if not a string literal, such as `format('runs %s', count)`. Adjacent literals
     #   (`'runs ' \ 'twice'`) are joined, as RSpec sees them.
     def string_text(node)
       case node.type
       when :string_literal
-        node.children.find {|child| child.type == :string_content}.children.map(&:source).join
+        # A string literal always has string content.
+        content = node.children.find {|child| child.type == :string_content} #: YARD::Parser::Ruby::AstNode
+        content.children.map(&:source).join
       when :string_concat
         node.children.map {|child| string_text(child)}.join
+      else
+        ''
       end
     end
 
-    # @param [YARD::Parser::Ruby::AstNode, nil] block_body
-    # @return [String] Empty without a block.
+    # @rbs block_body: YARD::Parser::Ruby::AstNode
+    # @rbs return: String -- Empty without statements.
     def extract_code(block_body)
-      return '' if block_body.nil?
+      return '' if block_body.empty?
 
       # The source starts at the first token; restore its indentation before dedenting.
       dedent((' ' * column_of(block_body)) + block_body.source)
     end
 
-    # @return [Integer]
+    # @rbs node: YARD::Parser::Ruby::AstNode
+    # @rbs return: Integer
     def column_of(node)
       start = node.source_range.first
       newline_before = node.full_source.rindex("\n", start - 1)
       newline_before.nil? ? start : start - newline_before - 1
     end
 
-    # @return [String]
+    # @rbs source: String
+    # @rbs return: String
     def dedent(source)
       lines = source.lines.map(&:rstrip)
-      min_indent = lines.reject(&:empty?).map {|line| line[/^\s*/].length}.min || 0
+      min_indent = lines.reject(&:empty?).map {|line| line.length - line.lstrip.length}.min || 0
       lines.map {|line| line[min_indent..] || line}.join("\n").strip
     end
   end

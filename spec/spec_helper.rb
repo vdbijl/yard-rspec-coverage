@@ -15,7 +15,22 @@ require 'yard-rspec-coverage'
 
 YARD::Logger.instance.level = YARD::Logger::ERROR
 
+# Matchers for the examples that the plugin attaches, to compare their attributes.
+module ExampleMatchers
+  def an_example(description, code = '', pending: false)
+    an_instance_of(YardRspec::Example)
+      .and have_attributes(description:, code:, pending?: pending)
+  end
+
+  def an_example_group(description, *children)
+    an_instance_of(YardRspec::ExampleGroup)
+      .and have_attributes(description:, children: match(children))
+  end
+end
+
 RSpec.configure do |config|
+  config.include ExampleMatchers
+
   config.before do
     YARD::Registry.clear
   end

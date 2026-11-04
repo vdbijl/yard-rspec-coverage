@@ -20,6 +20,15 @@ Layout/LineContinuationSpacing:
 
 Layout/LineLength:
   Max: 100
+  AllowRBSInlineAnnotation: true
+
+# Inline RBS annotations: `#: Type` comments.
+Layout/LeadingCommentSpace:
+  AllowRBSInlineAnnotation: true
+
+# The type of an attribute is declared per attribute, in a trailing comment.
+Style/AccessorGrouping:
+  EnforcedStyle: separated
 
 Layout/SpaceInsideBlockBraces:
   EnforcedStyle: no_space

@@ -1,0 +1,124 @@
+# Only the parts of YARD that this gem uses. YARD ships no types.
+# From the ostruct gem, which has no types in rbs. YARD passes one to the parse list callbacks, to
+# store arbitrary data; see sig/yard_rspec.rbs for what this gem stores.
+class OpenStruct
+end
+
+module YARD
+  def self.parse: (Array[String] paths, ?Array[String] excluded, ?Integer level) -> void
+
+  class Logger
+    ERROR: Integer
+  end
+
+  class Registry
+    def self.root: () -> CodeObjects::RootObject
+    def self.all: (:method type) -> Array[CodeObjects::MethodObject]
+               | (*Symbol types) -> Array[CodeObjects::Base]
+    def self.resolve: (CodeObjects::Base namespace, String name, ?bool inheritance) -> CodeObjects::Base?
+    def self.delete: (CodeObjects::Base object) -> void
+  end
+
+  module CodeObjects
+    class Base
+      def path: () -> String
+      def file: () -> String?
+      def line: () -> Integer?
+      def files: () -> Array[[String, Integer?]]
+      def namespace: () -> NamespaceObject
+      def visibility: () -> Symbol
+      # A dynamic attribute, of any type. The keys this gem sets have a type of their own.
+      def []: (:rspec_examples key) -> Array[YardRspec::example_node]?
+            | (:rspec_describe_problems key) -> Array[String]?
+            | (Symbol key) -> untyped
+      def []=: (:rspec_examples key, Array[YardRspec::example_node] value) -> Array[YardRspec::example_node]
+             | (:rspec_describe_problems key, Array[String] value) -> Array[String]
+             | (Symbol key, untyped value) -> untyped
+    end
+
+    class NamespaceObject < Base
+      def children: () -> Array[Base]
+      def child: (type: :method, ?name: Symbol, ?scope: Symbol) -> MethodObject?
+               | (Hash[Symbol, untyped] opts) -> Base?
+      def meths: (?scope: Symbol | Array[Symbol], ?visibility: Symbol | Array[Symbol], ?included: bool) -> Array[MethodObject]
+    end
+
+    class RootObject < NamespaceObject
+    end
+
+    class Proxy < Base
+    end
+
+    class MethodObject < Base
+      def name: () -> Symbol
+      def is_attribute?: () -> bool
+      def is_alias?: () -> bool
+    end
+  end
+
+  module Templates
+    class Engine
+      def self.register_template_path: (String path) -> void
+    end
+  end
+
+  module Parser
+    class SourceParser
+      # Returning false cancels the parse.
+      def self.before_parse_list: () { (Array[String] files, OpenStruct globals) -> bool? } -> void
+      def self.after_parse_list: () { (Array[String] files, OpenStruct globals) -> void } -> void
+    end
+
+    module Ruby
+      # The syntax tree of a Ruby file. It is an Array of its children: nodes, but also tokens such
+      # as strings and symbols, so its elements are untyped. The methods from
+      # method_name on exist on call nodes, of type :command or :fcall.
+      class AstNode < Array[untyped]
+        def self.new: (Symbol type, Array[untyped] children) -> AstNode
+        def type: () -> Symbol
+        def children: () -> Array[AstNode]
+        def source: () -> String
+        def full_source: () -> String
+        def source_range: () -> Range[Integer]
+        def line: () -> Integer
+        def file: () -> String
+        def method_name: (?bool name_only) -> (Symbol | String)
+        def parameters: (?bool include_block_params) -> Array[AstNode]
+        def block: () -> AstNode?
+      end
+
+      # A command or call, such as `describe Widget do ... end`.
+      class MethodCallNode = AstNode
+    end
+  end
+
+  module Handlers
+    module Ruby
+      # A matcher for Base.handles, such as the result of Base.method_call.
+      class HandlesExtension
+      end
+
+      class MethodCallWrapper < HandlesExtension
+      end
+
+      class Base
+        def self.handles: (*(Symbol | String | Regexp | HandlesExtension) matcher) -> void
+        def self.method_call: (?Symbol name) -> MethodCallWrapper
+        def self.namespace_only: () -> void
+        def statement: () -> Parser::Ruby::MethodCallNode
+        def namespace: () -> CodeObjects::NamespaceObject
+        def globals: () -> OpenStruct
+      end
+    end
+  end
+
+  module CLI
+    class Yardoc
+      def self.run: (*String args) -> bool?
+      def parse_arguments: (*String args) -> bool
+      def files: () -> Array[String]
+      def files=: (Array[String] files) -> Array[String]
+      def excluded: () -> Array[String]
+    end
+  end
+end

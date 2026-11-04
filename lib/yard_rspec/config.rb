@@ -4,24 +4,34 @@
 module YardRspec
   # Set in a project's Rakefile, e.g. `YardRspec::Config.minimum_rspec_coverage = 80.0`.
   module Config
-    class << self
-      attr_writer :minimum_rspec_coverage, :files
+    DEFAULT_MINIMUM_RSPEC_COVERAGE = 100.0 #: Float
 
-      # @return [Float] A percentage.
-      def minimum_rspec_coverage
-        @minimum_rspec_coverage || DEFAULT_MINIMUM_RSPEC_COVERAGE
-      end
+    DEFAULT_FILES = ['{lib,spec}/**/*.rb'].freeze #: Array[String]
 
-      # @return [<String>] Glob patterns of the source and spec files.
-      def files
-        @files || DEFAULT_FILES
-      end
+    @minimum_rspec_coverage = DEFAULT_MINIMUM_RSPEC_COVERAGE
+    @files = DEFAULT_FILES
+
+    # @rbs minimum_rspec_coverage: Float -- A percentage.
+    # @rbs return: Float
+    def self.minimum_rspec_coverage=(minimum_rspec_coverage)
+      @minimum_rspec_coverage = minimum_rspec_coverage
     end
 
-    # @return [Float]
-    DEFAULT_MINIMUM_RSPEC_COVERAGE = 100.0
+    # @rbs files: Array[String] -- Glob patterns.
+    # @rbs return: Array[String]
+    def self.files=(files)
+      @files = files
+    end
 
-    # @return [<String>]
-    DEFAULT_FILES = ['{lib,spec}/**/*.rb'].freeze
+    # @rbs return: Float -- A percentage, by default DEFAULT_MINIMUM_RSPEC_COVERAGE.
+    def self.minimum_rspec_coverage
+      @minimum_rspec_coverage
+    end
+
+    # @rbs return: Array[String] -- Glob patterns of the source and spec files, by default
+    #   DEFAULT_FILES.
+    def self.files
+      @files
+    end
   end
 end

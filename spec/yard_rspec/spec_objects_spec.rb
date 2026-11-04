@@ -56,7 +56,7 @@ RSpec.describe YardRspec::SpecObjects do
 
       it 'keeps the examples of the described methods' do
         expect(YARD::Registry.at('Widget#spin')[:rspec_examples])
-          .to eq([{ description: 'spins', code: '' }])
+          .to match([an_example('spins')])
       end
     end
 
