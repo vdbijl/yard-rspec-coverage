@@ -44,7 +44,7 @@ module YardRspec
     end
 
     # @rbs namespace: YARD::CodeObjects::NamespaceObject
-    # @rbs return: YARD::CodeObjects::MethodObject? -- Searched in superclasses and mixins too.
+    # @rbs return: YARD::CodeObjects::method_object? -- Searched in superclasses and mixins too.
     #   Falls back to the other scope, since specs sometimes write '#' for class methods, and from
     #   'new' to #initialize, which YARD documents for the constructor.
     def find_in(namespace)
@@ -59,7 +59,7 @@ module YardRspec
     # @rbs namespace: YARD::CodeObjects::NamespaceObject
     # @rbs scope: :instance | :class
     # @rbs method_name: String
-    # @rbs return: YARD::CodeObjects::MethodObject?
+    # @rbs return: YARD::CodeObjects::method_object?
     def find_with_scope(namespace, scope, method_name)
       namespace.child(name: method_name.to_sym, scope: scope, type: :method) ||
         namespace.meths(scope: scope, visibility: %i[public protected private], included: true)

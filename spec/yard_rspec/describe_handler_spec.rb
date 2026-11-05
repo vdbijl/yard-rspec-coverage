@@ -870,7 +870,7 @@ RSpec.describe YardRspec::DescribeHandler do
       end
 
       it 'contains none of the tags as markup' do
-        expect(html).not_to match(%r{<b>|<script>|<i>widget</i>})
+        expect(html).not_to include('<b>', '<script>', '<i>widget</i>')
       end
     end
 

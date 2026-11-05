@@ -20,14 +20,8 @@ module YARD
   end
 
   module CodeObjects
-    class Base
-      def path: () -> String
-      def file: () -> String?
-      def line: () -> Integer?
-      def files: () -> Array[[String, Integer?]]
-      def namespace: () -> NamespaceObject
-      def visibility: () -> Symbol
-      # A dynamic attribute, of any type. The keys this gem sets have a type of their own.
+    # Dynamic attributes of any type. The keys this gem sets have a type of their own.
+    interface _DynamicAttributes
       def []: (:rspec_examples key) -> Array[YardRspec::example_node]?
             | (:rspec_describe_problems key) -> Array[String]?
             | (Symbol key) -> untyped
@@ -36,11 +30,31 @@ module YARD
              | (Symbol key, untyped value) -> untyped
     end
 
+    # A method of a mixin, as listed by NamespaceObject#meths: a delegator to its MethodObject, so
+    # not a MethodObject itself.
+    class ExtendedMethodObject
+      include _DynamicAttributes
+      def name: () -> Symbol
+    end
+
+    type method_object = MethodObject | ExtendedMethodObject
+
+    class Base
+      include _DynamicAttributes
+      def path: () -> String
+      def file: () -> String?
+      def line: () -> Integer?
+      def files: () -> Array[[String, Integer?]]
+      def namespace: () -> NamespaceObject
+      def visibility: () -> Symbol
+    end
+
     class NamespaceObject < Base
       def children: () -> Array[Base]
       def child: (type: :method, ?name: Symbol, ?scope: Symbol) -> MethodObject?
                | (Hash[Symbol, untyped] opts) -> Base?
-      def meths: (?scope: Symbol | Array[Symbol], ?visibility: Symbol | Array[Symbol], ?included: bool) -> Array[MethodObject]
+      # With included: true, the methods of mixins are ExtendedMethodObjects.
+      def meths: (?scope: Symbol | Array[Symbol], ?visibility: Symbol | Array[Symbol], ?included: bool) -> Array[method_object]
     end
 
     class RootObject < NamespaceObject
@@ -83,7 +97,9 @@ module YARD
         def line: () -> Integer
         def file: () -> String
         def method_name: (?bool name_only) -> (Symbol | String)
-        def parameters: (?bool include_block_params) -> Array[AstNode]
+        # The last element is the block parameter, which is `false` when there is none.
+        def parameters: (false include_block_param) -> Array[AstNode]
+                      | (?true include_block_param) -> Array[AstNode | false]
         def block: () -> AstNode?
       end
 

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'prerelease'
+require_relative 'rbs_stub_audit'
 
 # The checks to run on the release commit, before tagging. They take several minutes, so they are
 # not part of the default task. Not part of the gem.
@@ -19,6 +20,11 @@ namespace :prerelease do
     Prerelease.fail_on(Prerelease.package_problems)
   end
 
+  desc 'Check that the methods that the YARD stubs in sig/ declare exist in the installed YARD'
+  task :stubs do
+    Prerelease.fail_on(RbsStubAudit.problems)
+  end
+
   desc 'Mutation testing with the ignore list; needs the mutaruby gem, takes several minutes'
   task :mutation do
     Prerelease.mutation_testing
@@ -30,5 +36,6 @@ namespace :prerelease do
   end
 end
 
-desc 'All checks before a release: repository, package, mutation testing, comparison'
-task prerelease: %w[prerelease:package prerelease:mutation prerelease:compare prerelease:repository]
+desc 'All checks before a release: repository, package, stubs, mutation testing, comparison'
+task prerelease: %w[prerelease:package prerelease:stubs prerelease:mutation prerelease:compare
+                    prerelease:repository]
