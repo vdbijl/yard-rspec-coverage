@@ -51,7 +51,8 @@ module YardRspec
       traverse(block_body_of(node), children)
       return if children.empty?
 
-      nodes << ExampleGroup.new(description: string_text(node.parameters.first), children: children)
+      description = string_text(node.parameters(false).first)
+      nodes << ExampleGroup.new(description: description, children: children)
     end
 
     # @rbs node: YARD::Parser::Ruby::AstNode
@@ -70,7 +71,7 @@ module YardRspec
     # @rbs return: Example -- Pending for the `x` variants and examples without a block, which
     #   RSpec reports as pending.
     def build_example(node)
-      description = string_text(node.parameters.first)
+      description = string_text(node.parameters(false).first)
       Example.new(description: description.empty? ? 'example' : description,
                   code: extract_code(block_body_of(node)), pending: pending_example?(node))
     end

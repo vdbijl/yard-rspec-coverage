@@ -32,7 +32,7 @@ module YardRspec
     # @rbs return: void
     def walk(node, &)
       if method_describe_node?(node)
-        description = MethodDescription.parse(source_of(node.parameters.first))
+        description = MethodDescription.parse(source_of(node.parameters(false).first))
         yield [description, block_body_of(node), node.line]
       else
         node.children.each {|child| walk(child, &)}
@@ -43,7 +43,7 @@ module YardRspec
     # @rbs return: bool
     def method_describe_node?(node)
       node.type == :command && describe_or_context_call?(node) &&
-        source_of(node.parameters.first).start_with?('#', '.')
+        source_of(node.parameters(false).first).start_with?('#', '.')
     end
 
     # @rbs node: YARD::Parser::Ruby::AstNode

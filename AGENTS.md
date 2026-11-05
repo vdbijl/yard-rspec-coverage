@@ -46,6 +46,9 @@ templates/default/
 
 script/prerelease.rb          # Not in the gem: the checks of `rake prerelease`
 script/prerelease.rake        # Not in the gem: the `prerelease` tasks, loaded by the Rakefile
+script/rbs_from_inline.rb     # Not in the gem: converts the inline RBS annotations to a .rbs file
+script/rbs_runtime.rb         # Not in the gem: RbsRuntime.with_checker, used by `spec:coverage`
+script/rbs_stub_audit.rb      # Not in the gem: checks the YARD stubs in sig/ against the real YARD
 script/compare_with_rspec/    # Not in the gem: compares the plugin with `rspec --dry-run` (see below)
   run.rb                      # Entry point: dry run, plugin examples, comparison, report
   example_lister.rb           # RSpec formatter loaded into the compared project's RSpec process
@@ -263,6 +266,14 @@ bundle exec steep check
 bundle exec rake    # all checks, see below
 ```
 
+Steep checks the code against the signatures; RBS::Test, the runtime type checker of RBS, checks the
+signatures, and the stubs in `sig/`, against the arguments and return values that the specs produce
+with the real YARD. It found a trailing `false` in `parameters` and the `ExtendedMethodObject` that
+Steep could not see. `rake spec:coverage` (so `rake`) runs the specs under it, for the classes of
+the gem. RBS::Test reads only `.rbs` files, so `script/rbs_from_inline.rb` converts the inline
+annotations first, into a temporary directory. RSpec doubles are accepted
+(`RBS_TEST_DOUBLE_SUITE=rspec`).
+
 Mutation testing is not part of the build. It uses the open source `mutaruby` gem, which is in the
 Gemfile, and takes several minutes:
 
@@ -311,6 +322,10 @@ and is not part of the build. Its steps are also tasks:
 - `prerelease:package`: builds the gem, checks that it has the files it needs and none it should
   not have, and runs `yard doc --plugin rspec-coverage` on a fixture with only the unpacked gem on
   the load path.
+- `prerelease:stubs`: checks that every class, module and method that the YARD stubs in
+  `sig/yard.rbs` declare exists in the installed YARD (`script/rbs_stub_audit.rb`). Steep trusts the
+  stubs, and RBS::Test checks only the methods that the specs call. A method that YARD has in a way
+  that Ruby cannot see (a delegator, a subclass) goes in `ALLOWED`, with the reason.
 - `prerelease:mutation`: the mutaruby run described above, with `--strict-ignore`.
 - `prerelease:compare`: the comparison with RSpec above, in `COMPARE_PROJECT` with
   `COMPARE_RSPEC` as the RSpec command. Skipped, with a message, without `COMPARE_PROJECT`; its

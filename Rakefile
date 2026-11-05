@@ -4,6 +4,7 @@ require 'open3'
 require 'bundler/audit/task'
 require 'rspec/core/rake_task'
 require_relative 'lib/yard_rspec/rake_tasks'
+require_relative 'script/rbs_runtime' # Not part of the gem.
 require 'yard-inline-rbs' # YARD ignores --plugin in the in-process yard:doc.
 YardRspec::Config.minimum_rspec_coverage = 100.0
 YardRspec::Config.files = ['{lib,spec}/**/*.rb'] # .yardopts excludes spec/fixtures
@@ -22,10 +23,10 @@ require 'rubocop/rake_task'
 RuboCop::RakeTask.new
 
 namespace :spec do
-  desc 'Run the specs with SimpleCov, which fails below the minimum set in spec/spec_helper.rb'
+  desc 'Run the specs with SimpleCov and the RBS runtime type checker; see script/rbs_runtime.rb'
   task :coverage do
     ENV['COVERAGE'] = 'true'
-    Rake::Task[:rspec].invoke
+    RbsRuntime.with_checker {Rake::Task[:rspec].invoke}
   end
 end
 

@@ -23,6 +23,10 @@ Development:
 - The code has inline RBS type annotations, checked by Steep with strict diagnostics (`rake steep`,
   part of `rake`). The types are documented by `yard-inline-rbs`, enabled in `.yardopts`. The
   `sig/` directory holds the types of YARD, and is not part of the gem.
+- `rake spec:coverage` (so `rake`) runs the specs under the RBS runtime type checker, which checks
+  the signatures and the YARD stubs in `sig/` against the real YARD.
+- `rake prerelease:stubs` (part of `rake prerelease`) checks that every method that the YARD stubs
+  in `sig/` declare exists in the installed YARD.
 - `Gemfile.lock` is no longer committed: a gem is tested against the newest versions that its
   gemspec allows.
 

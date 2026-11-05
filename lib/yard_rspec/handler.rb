@@ -48,13 +48,13 @@ module YardRspec
 
     # @rbs return: String? -- The first describe parameter; nil for `describe do`.
     def described_name
-      first_parameter = statement.parameters.first
+      first_parameter = statement.parameters(false).first
       Unquote.call(first_parameter.source) if ast_node?(first_parameter)
     end
 
     # @rbs return: MethodDescription? -- From the second describe parameter.
     def extract_method_description
-      second_param = statement.parameters[1]
+      second_param = statement.parameters(false)[1]
       return nil if !ast_node?(second_param)
 
       MethodDescription.parse(Unquote.call(second_param.source))
